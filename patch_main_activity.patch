@@ -1,0 +1,24 @@
+--- ./app/src/main/java/com/example/MainActivity.kt
++++ ./app/src/main/java/com/example/MainActivity.kt
+@@ -187,7 +187,17 @@
+       CalibrationScreen(
+         onBack = { navController.popBackStack() },
+         onComplete = {
+-          // Final step or home dashboard
++          navController.navigate("hand_test/$username")
++        }
++      )
++    }
++
++    composable(
++      route = "hand_test/{username}",
++      arguments = listOf(navArgument("username") { type = NavType.StringType })
++    ) { backStackEntry ->
++      val username = backStackEntry.arguments?.getString("username") ?: "User"
++      RoboticHandTestScreen(
++        onBack = { navController.popBackStack() },
++        onComplete = {
++          // Next step
+         }
+       )
+     }

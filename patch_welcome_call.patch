@@ -1,0 +1,37 @@
+--- ./app/src/main/java/com/example/MainActivity.kt
++++ ./app/src/main/java/com/example/MainActivity.kt
+@@ -142,9 +142,9 @@
+       val username = backStackEntry.arguments?.getString("username") ?: "User"
+       WelcomeScreen(
+         username = username,
+-        onLogout = {
+-          navController.navigate("login") {
+-            popUpTo(0)
++        onSkip = {
++          navController.navigate("dashboard/$username") {
++            popUpTo("welcome/$username") { inclusive = true }
+           }
+         },
+         onStartSetup = {
+@@ -218,6 +218,20 @@
+         }
+       )
+     }
++
++    composable(
++      route = "dashboard/{username}",
++      arguments = listOf(navArgument("username") { type = NavType.StringType })
++    ) { backStackEntry ->
++      val username = backStackEntry.arguments?.getString("username") ?: "User"
++      DashboardScreen(
++        username = username,
++        onLogout = {
++          navController.navigate("login") {
++            popUpTo(0)
++          }
++        }
++      )
++    }
+   }
+ }
+ 

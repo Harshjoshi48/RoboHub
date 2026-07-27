@@ -1,0 +1,30 @@
+--- ./app/src/main/java/com/example/CalibrationScreen.kt
++++ ./app/src/main/java/com/example/CalibrationScreen.kt
+@@ -21,6 +21,8 @@
+ import androidx.compose.ui.res.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.filled.CheckCircle
++import androidx.compose.material.icons.filled.RadioButtonChecked
+ import kotlinx.coroutines.delay
+ import kotlin.math.sin
+@@ -171,7 +173,7 @@
+ 
+         // Task 1: Completed
+         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)) {
+-            Icon(painter = painterResource(android.R.drawable.presence_online), contentDescription = "Completed", tint = primaryBlue, modifier = Modifier.size(24.dp))
++            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Completed", tint = primaryBlue, modifier = Modifier.size(24.dp))
+             Spacer(modifier = Modifier.width(16.dp))
+             Text("Rest Position Baseline", style = MaterialTheme.typography.titleSmall, color = Color.Gray, fontWeight = FontWeight.Normal)
+         }
+@@ -183,7 +185,7 @@
+             border = BorderStroke(1.5.dp, primaryBlue)
+         ) {
+             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+-                Icon(painter = painterResource(android.R.drawable.presence_online), contentDescription = "Active", tint = primaryBlue, modifier = Modifier.size(24.dp)) // Used presence online as placeholder for radio checked
++                Icon(imageVector = Icons.Default.RadioButtonChecked, contentDescription = "Active", tint = primaryBlue, modifier = Modifier.size(24.dp))
+                 Spacer(modifier = Modifier.width(16.dp))
+                 Text("Close Your Hand Slowly", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.Black)
+             }

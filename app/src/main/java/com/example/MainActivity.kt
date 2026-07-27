@@ -142,8 +142,97 @@ fun AppNavigation(modifier: Modifier = Modifier) {
       val username = backStackEntry.arguments?.getString("username") ?: "User"
       WelcomeScreen(
         username = username,
+        onSkip = {
+          navController.navigate("dashboard/$username") {
+            popUpTo("welcome/$username") { inclusive = true }
+          }
+        },
+        onStartSetup = {
+          navController.navigate("permissions/$username")
+        }
+      )
+    }
+
+    composable(
+      route = "dashboard/{username}",
+      arguments = listOf(navArgument("username") { type = NavType.StringType })
+    ) { backStackEntry ->
+      val username = backStackEntry.arguments?.getString("username") ?: "User"
+      DashboardScreen(
+        username = username,
         onLogout = {
           navController.navigate("login") {
+            popUpTo(0)
+          }
+        }
+      )
+    }
+
+    composable(
+      route = "permissions/{username}",
+      arguments = listOf(navArgument("username") { type = NavType.StringType })
+    ) { backStackEntry ->
+      val username = backStackEntry.arguments?.getString("username") ?: "User"
+      PermissionsScreen(
+        onBack = { navController.popBackStack() },
+        onContinue = {
+          navController.navigate("connect_devices/$username")
+        }
+      )
+    }
+
+    composable(
+      route = "connect_devices/{username}",
+      arguments = listOf(navArgument("username") { type = NavType.StringType })
+    ) { backStackEntry ->
+      val username = backStackEntry.arguments?.getString("username") ?: "User"
+      ConnectDevicesScreen(
+        onBack = { navController.popBackStack() },
+        onContinue = {
+          navController.navigate("calibration/$username")
+        }
+      )
+    }
+
+    composable(
+      route = "calibration/{username}",
+      arguments = listOf(navArgument("username") { type = NavType.StringType })
+    ) { backStackEntry ->
+      val username = backStackEntry.arguments?.getString("username") ?: "User"
+      CalibrationScreen(
+        onBack = { navController.popBackStack() },
+        onComplete = {
+          navController.navigate("hand_test/$username")
+        }
+      )
+    }
+
+    composable(
+      route = "hand_test/{username}",
+      arguments = listOf(navArgument("username") { type = NavType.StringType })
+    ) { backStackEntry ->
+      val username = backStackEntry.arguments?.getString("username") ?: "User"
+      RoboticHandTestScreen(
+        onBack = { navController.popBackStack() },
+        onComplete = {
+          navController.navigate("setup_complete/$username")
+        }
+      )
+    }
+
+    composable(
+      route = "setup_complete/{username}",
+      arguments = listOf(navArgument("username") { type = NavType.StringType })
+    ) { backStackEntry ->
+      val username = backStackEntry.arguments?.getString("username") ?: "User"
+      SetupCompleteScreen(
+        onGoToDashboard = {
+          navController.navigate("dashboard/$username") {
+            popUpTo(0)
+          }
+        },
+        onViewTutorial = {
+          navController.navigate("welcome/$username") {
             popUpTo(0)
           }
         }
@@ -369,40 +458,349 @@ fun LoginScreen(
 }
 
 @Composable
-fun WelcomeScreen(username: String, onLogout: () -> Unit) {
+fun WelcomeScreen(username: String, onSkip: () -> Unit, onStartSetup: () -> Unit) {
+  val primaryBlue = Color(0xFF2F80ED)
+  val textGray = Color(0xFF727785)
+  val darkText = Color(0xFF1A1B1F)
+  val lightBg = Color(0xFFF8F9FA)
+
   Column(
     modifier = Modifier
       .fillMaxSize()
-      .padding(32.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.Center
+      .background(Color.White)
+      .systemBarsPadding()
+      .padding(horizontal = 24.dp)
+      .verticalScroll(rememberScrollState()),
+    horizontalAlignment = Alignment.CenterHorizontally
   ) {
+    // Top Bar
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(top = 16.dp, bottom = 24.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      TextButton(onClick = onSkip, contentPadding = PaddingValues(0.dp)) {
+        Text("Skip", color = textGray, style = MaterialTheme.typography.bodyMedium)
+      }
+      
+      Text(
+        text = "NeuroGrip",
+        style = MaterialTheme.typography.titleLarge,
+        color = primaryBlue,
+        fontWeight = FontWeight.Bold
+      )
+      
+      IconButton(onClick = { /* Help */ }) {
+        Icon(
+          painter = painterResource(android.R.drawable.ic_menu_help),
+          contentDescription = "Help",
+          tint = textGray
+        )
+      }
+    }
+
     Text(
-      text = "Welcome, $username!",
-      style = MaterialTheme.typography.headlineMedium,
+      text = "FIRST TIME SETUP",
+      style = MaterialTheme.typography.labelSmall,
+      color = textGray,
+      letterSpacing = 1.5.sp,
       fontWeight = FontWeight.Bold,
-      modifier = Modifier.padding(bottom = 16.dp)
-    )
-    Text(
-      text = "You are now connected to the robotic system.",
-      style = MaterialTheme.typography.bodyLarge,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.padding(bottom = 48.dp)
+      modifier = Modifier.padding(bottom = 8.dp)
     )
 
+    Text(
+      text = "Welcome to NeuroGrip",
+      style = MaterialTheme.typography.headlineMedium,
+      fontWeight = FontWeight.ExtraBold,
+      color = darkText,
+      modifier = Modifier.padding(bottom = 12.dp)
+    )
+
+    Text(
+      text = "Let's prepare your robotic hand system in just a few guided steps.",
+      style = MaterialTheme.typography.bodyMedium,
+      color = textGray,
+      textAlign = TextAlign.Center,
+      modifier = Modifier.padding(bottom = 24.dp).padding(horizontal = 16.dp)
+    )
+
+    // Main Card
+    Card(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(bottom = 16.dp),
+      shape = RoundedCornerShape(16.dp),
+      colors = CardDefaults.cardColors(containerColor = Color.White),
+      border = BorderStroke(1.dp, Color(0xFFEBEBEB))
+    ) {
+      Column {
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp)
+            .background(Color(0xFFE3EDF7)),
+          contentAlignment = Alignment.Center
+        ) {
+          coil.compose.AsyncImage(
+            model = "https://img.freepik.com/premium-photo/robot-human-hand-touching-creating-spark-concept-artificial-intelligence-connection_14117-681283.jpg",
+            contentDescription = "AI-Powered Robotic Rehabilitation",
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+          )
+        }
+        Column(modifier = Modifier.padding(20.dp)) {
+          Text(
+            text = "AI-Powered Robotic Rehabilitation",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = darkText,
+            modifier = Modifier.padding(bottom = 8.dp)
+          )
+          Text(
+            text = "Control your NeuroGrip robotic hand using brain signals, muscle activity, or the mobile application with intelligent AI assistance.",
+            style = MaterialTheme.typography.bodySmall,
+            color = textGray,
+            lineHeight = 18.sp
+          )
+        }
+      }
+    }
+
+    // Feature Cards
+    FeatureCard(iconRes = android.R.drawable.ic_menu_view, title = "Brain Control", subtitle = "Direct neural interface")
+    FeatureCard(iconUrl = "https://cdn-icons-png.flaticon.com/512/2936/2936886.png", title = "Muscle Control", subtitle = "EMG signal processing")
+    FeatureCard(iconUrl = "https://cdn-icons-png.flaticon.com/512/15/15874.png", title = "App Control", subtitle = "Manual adjustments")
+
+    // Setup Includes
+    Card(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 16.dp),
+      shape = RoundedCornerShape(16.dp),
+      colors = CardDefaults.cardColors(containerColor = Color.White),
+      border = BorderStroke(1.dp, Color(0xFFEBEBEB))
+    ) {
+      Column(modifier = Modifier.padding(20.dp)) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Text(
+            text = "Setup Includes",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = darkText
+          )
+          Box(
+            modifier = Modifier
+              .background(Color(0xFFE8F0FE), RoundedCornerShape(16.dp))
+              .padding(horizontal = 8.dp, vertical = 4.dp)
+          ) {
+            Text(
+              text = "5-7 Minutes",
+              style = MaterialTheme.typography.labelSmall,
+              color = primaryBlue,
+              fontWeight = FontWeight.Bold
+            )
+          }
+        }
+
+        SetupItem(icon = android.R.drawable.ic_menu_save, text = "Connect ESP32 Microcontroller")
+        SetupItem(icon = android.R.drawable.ic_media_play, text = "Pair EEG Headset")
+        SetupItem(icon = android.R.drawable.ic_menu_compass, text = "Attach EMG Sensor")
+        SetupItem(icon = android.R.drawable.ic_menu_edit, text = "Calibrate Robotic Hand", isLast = true)
+      }
+    }
+
+    // System Status
+    Card(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(bottom = 24.dp),
+      shape = RoundedCornerShape(16.dp),
+      colors = CardDefaults.cardColors(containerColor = lightBg)
+    ) {
+      Column(modifier = Modifier.padding(20.dp)) {
+        Text(
+          text = "CURRENT SYSTEM STATUS",
+          style = MaterialTheme.typography.labelSmall,
+          color = textGray,
+          letterSpacing = 1.sp,
+          fontWeight = FontWeight.Bold,
+          modifier = Modifier.padding(bottom = 12.dp)
+        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+          StatusIndicator(text = "ESP32: Waiting")
+          StatusIndicator(text = "EEG: Not Connected")
+        }
+      }
+    }
+
+    // Buttons
     Button(
-      onClick = onLogout,
+      onClick = onStartSetup,
       modifier = Modifier
         .fillMaxWidth()
         .height(52.dp),
-      shape = MaterialTheme.shapes.large,
-      colors = ButtonDefaults.buttonColors(
-        containerColor = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer
-      )
+      shape = RoundedCornerShape(26.dp),
+      colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
     ) {
-      Text("LOGOUT", style = MaterialTheme.typography.titleMedium)
+      Text("START SETUP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
     }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    OutlinedButton(
+      onClick = { /* Watch Introduction Action */ },
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(52.dp),
+      shape = RoundedCornerShape(26.dp),
+      border = BorderStroke(1.dp, Color(0xFFEBEBEB))
+    ) {
+      Text("WATCH QUICK INTRODUCTION", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = primaryBlue)
+    }
+
+    Spacer(modifier = Modifier.height(24.dp))
+
+    Text(
+      text = "By continuing, you agree to the safety guidelines.",
+      style = MaterialTheme.typography.labelSmall,
+      color = textGray,
+      modifier = Modifier.padding(bottom = 8.dp)
+    )
+    
+    Text(
+      text = "Step 1 of 6",
+      style = MaterialTheme.typography.labelSmall,
+      color = textGray,
+      modifier = Modifier.padding(bottom = 8.dp)
+    )
+
+    LinearProgressIndicator(
+      progress = { 1f / 6f },
+      modifier = Modifier
+        .width(100.dp)
+        .height(4.dp),
+      color = primaryBlue,
+      trackColor = Color(0xFFE0E0E0),
+      strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+    )
+    
+    Spacer(modifier = Modifier.height(64.dp))
+  }
+}
+
+@Composable
+fun FeatureCard(iconVector: androidx.compose.ui.graphics.vector.ImageVector? = null, iconRes: Int? = null, iconUrl: String? = null, title: String, subtitle: String) {
+  val primaryBlue = Color(0xFF2F80ED)
+  val darkText = Color(0xFF1A1B1F)
+  val textGray = Color(0xFF727785)
+
+  Card(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(bottom = 12.dp),
+    shape = RoundedCornerShape(16.dp),
+    colors = CardDefaults.cardColors(containerColor = Color.White),
+    border = BorderStroke(1.dp, Color(0xFFEBEBEB))
+  ) {
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 20.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+      Box(
+        modifier = Modifier
+          .size(48.dp)
+          .background(Color(0xFFE8F0FE), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+      ) {
+        if (iconUrl != null) {
+          coil.compose.AsyncImage(
+            model = iconUrl,
+            contentDescription = title,
+            modifier = Modifier.size(24.dp)
+          )
+        } else if (iconVector != null) {
+          Icon(
+            imageVector = iconVector,
+            contentDescription = title,
+            tint = primaryBlue,
+            modifier = Modifier.size(24.dp)
+          )
+        } else if (iconRes != null) {
+          Icon(
+            painter = painterResource(iconRes),
+            contentDescription = title,
+            tint = primaryBlue,
+            modifier = Modifier.size(24.dp)
+          )
+        }
+      }
+      Spacer(modifier = Modifier.height(12.dp))
+      Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = darkText
+      )
+      Text(
+        text = subtitle,
+        style = MaterialTheme.typography.bodySmall,
+        color = textGray
+      )
+    }
+  }
+}
+
+@Composable
+fun SetupItem(icon: Int, text: String, isLast: Boolean = false) {
+  val textGray = Color(0xFF727785)
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(bottom = if (isLast) 0.dp else 16.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Icon(
+      painter = painterResource(icon),
+      contentDescription = null,
+      tint = textGray,
+      modifier = Modifier.size(20.dp)
+    )
+    Spacer(modifier = Modifier.width(16.dp))
+    Text(
+      text = text,
+      style = MaterialTheme.typography.bodyMedium,
+      color = Color(0xFF1A1B1F)
+    )
+  }
+}
+
+@Composable
+fun StatusIndicator(text: String) {
+  Row(verticalAlignment = Alignment.CenterVertically) {
+    Box(
+      modifier = Modifier
+        .size(8.dp)
+        .background(Color(0xFF9E9E9E), androidx.compose.foundation.shape.CircleShape)
+    )
+    Spacer(modifier = Modifier.width(8.dp))
+    Text(
+      text = text,
+      style = MaterialTheme.typography.bodySmall,
+      color = Color(0xFF1A1B1F)
+    )
   }
 }
 

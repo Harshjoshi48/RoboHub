@@ -1,0 +1,26 @@
+--- ./app/src/main/java/com/example/MainActivity.kt
++++ ./app/src/main/java/com/example/MainActivity.kt
+@@ -200,8 +200,18 @@
+       RoboticHandTestScreen(
+         onBack = { navController.popBackStack() },
+         onComplete = {
+-          navController.navigate("welcome/$username") {
+-            popUpTo("welcome/$username") { inclusive = true }
++          navController.navigate("setup_complete/$username")
++        }
++      )
++    }
++
++    composable(
++      route = "setup_complete/{username}",
++      arguments = listOf(navArgument("username") { type = NavType.StringType })
++    ) { backStackEntry ->
++      val username = backStackEntry.arguments?.getString("username") ?: "User"
++      SetupCompleteScreen(
++        onGoToDashboard = {
++          navController.navigate("welcome/$username") {
++            popUpTo(0)
+           }
+         }
+       )
+     }

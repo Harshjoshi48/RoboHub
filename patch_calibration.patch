@@ -1,0 +1,13 @@
+--- ./app/src/main/java/com/example/CalibrationScreen.kt
++++ ./app/src/main/java/com/example/CalibrationScreen.kt
+@@ -252,7 +252,9 @@
+         }
+ 
+         Button(
+-            onClick = onComplete,
++            onClick = {
++                onComplete()
++            },
+             modifier = Modifier.fillMaxWidth().height(56.dp),
+             shape = RoundedCornerShape(8.dp),
+             colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
