@@ -23,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +60,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(modifier: Modifier = Modifier) {
   val navController = rememberNavController()
+  val dashboardViewModel: DashboardViewModel = viewModel()
   val context = LocalContext.current
 
   NavHost(navController = navController, startDestination = "splash", modifier = modifier) {
@@ -101,12 +103,23 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
       )
     }
+        composable("reset_password") {
+      ResetPasswordScreen(
+        onResetSuccess = {
+          navController.navigate("login") {
+            popUpTo("login") { inclusive = true }
+          }
+        },
+        onBack = { navController.popBackStack() }
+      )
+    }
+    
     composable("forgot_password") {
       ForgotPasswordScreen(
         onBack = { navController.popBackStack() },
         onRequestReset = { email ->
           val safeEmail = if (email.isNotBlank()) email else "user@example.com"
-          navController.navigate("otp/$safeEmail/login")
+          navController.navigate("otp/$safeEmail/reset")
         }
       )
     }
@@ -125,6 +138,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
           if (next == "welcome") {
             navController.navigate("welcome/New User") {
               popUpTo("login") { inclusive = true }
+            }
+          } else if (next == "reset") {
+            navController.navigate("reset_password") {
+              popUpTo("login") { inclusive = false }
             }
           } else {
             navController.navigate("login") {
@@ -160,11 +177,71 @@ fun AppNavigation(modifier: Modifier = Modifier) {
       val username = backStackEntry.arguments?.getString("username") ?: "User"
       DashboardScreen(
         username = username,
+        viewModel = dashboardViewModel,
+        onLogout = {
+          navController.navigate("login") {
+            popUpTo(0)
+          }
+        },
+        onNavigateToNotifications = {
+          navController.navigate("notifications")
+        },
+        onNavigateToProfile = {
+          navController.navigate("profile/$username")
+        },
+        onNavigateToSettings = {
+          navController.navigate("settings")
+        },
+        onNavigateToReports = {
+          navController.navigate("reports")
+        }
+      )
+    }
+    
+    composable(
+      route = "profile/{username}",
+      arguments = listOf(navArgument("username") { type = NavType.StringType })
+    ) { backStackEntry ->
+      val username = backStackEntry.arguments?.getString("username") ?: "User"
+      ProfileScreen(
+        username = username,
+        onLogout = {
+          navController.navigate("login") {
+            popUpTo(0)
+          }
+        },
+        onNavigateToDashboard = {
+          navController.navigate("dashboard/$username") {
+            popUpTo(0)
+          }
+        },
+        onNavigateToSettings = {
+          navController.navigate("settings")
+        }
+      )
+    }
+    
+        composable("reports") {
+      ReportsScreen(
+        onBack = { navController.popBackStack() }
+      )
+    }
+    
+    composable("settings") {
+      SettingsScreen(
+        viewModel = dashboardViewModel,
+        onBack = { navController.popBackStack() },
         onLogout = {
           navController.navigate("login") {
             popUpTo(0)
           }
         }
+      )
+    }
+    
+    composable("notifications") {
+      NotificationsScreen(
+        onBack = { navController.popBackStack() }
       )
     }
 
