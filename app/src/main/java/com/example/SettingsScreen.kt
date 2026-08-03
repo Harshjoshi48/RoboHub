@@ -39,7 +39,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun SettingsScreen(
     viewModel: DashboardViewModel = viewModel(),
     onBack: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToPermissions: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val sharedPrefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
@@ -163,6 +164,13 @@ fun SettingsScreen(
             
             // Section 1
             SettingsSection {
+                SettingsRow(
+                    icon = Icons.Outlined.Security,
+                    title = "Device Permissions & Setup",
+                    trailingText = "Step 2 of 4",
+                    onClick = onNavigateToPermissions
+                )
+                HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 56.dp))
                 SettingsRow(
                     icon = Icons.Outlined.Devices,
                     title = "Connected Devices",

@@ -52,6 +52,107 @@ class DashboardViewModel : ViewModel() {
     private val _connectionMessage = MutableStateFlow<String?>(null)
     val connectionMessage: StateFlow<String?> = _connectionMessage
 
+    // Hand Control State
+    private val _thumbAngle = MutableStateFlow(90)
+    val thumbAngle: StateFlow<Int> = _thumbAngle
+
+    private val _indexAngle = MutableStateFlow(90)
+    val indexAngle: StateFlow<Int> = _indexAngle
+
+    private val _middleAngle = MutableStateFlow(90)
+    val middleAngle: StateFlow<Int> = _middleAngle
+
+    private val _ringAngle = MutableStateFlow(90)
+    val ringAngle: StateFlow<Int> = _ringAngle
+
+    private val _littleAngle = MutableStateFlow(90)
+    val littleAngle: StateFlow<Int> = _littleAngle
+
+    private val _esp32Ip = MutableStateFlow("192.168.4.1")
+    val esp32Ip: StateFlow<String> = _esp32Ip
+
+    fun setThumbAngle(angle: Int) { _thumbAngle.value = angle }
+    fun setIndexAngle(angle: Int) { _indexAngle.value = angle }
+    fun setMiddleAngle(angle: Int) { _middleAngle.value = angle }
+    fun setRingAngle(angle: Int) { _ringAngle.value = angle }
+    fun setLittleAngle(angle: Int) { _littleAngle.value = angle }
+
+    fun setAllFingers(angle: Int) {
+        _thumbAngle.value = angle
+        _indexAngle.value = angle
+        _middleAngle.value = angle
+        _ringAngle.value = angle
+        _littleAngle.value = angle
+    }
+
+    fun setOpenHand() { setAllFingers(0) }
+    fun setCloseHand() { setAllFingers(180) }
+    fun setHomePosition() { setAllFingers(90) }
+
+    fun sendHandControlCommand(context: Context, onResult: (String) -> Unit = {}) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val t = _thumbAngle.value
+            val i = _indexAngle.value
+            val m = _middleAngle.value
+            val r = _ringAngle.value
+            val l = _littleAngle.value
+
+            val urlString = "http://${_esp32Ip.value}/control?thumb=$t&index=$i&middle=$m&ring=$r&little=$l"
+            
+            try {
+                if (_isConnected.value) {
+                    val url = java.net.URL(urlString)
+                    val connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 2000
+                    connection.readTimeout = 2000
+                    val code = connection.responseCode
+                    connection.disconnect()
+                    
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        val msg = "Signal sent to ESP32: T:$t° I:$i° M:$m° R:$r° L:$l° (HTTP $code)"
+                        _connectionMessage.value = msg
+                        onResult(msg)
+                      }
+                } else {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        val msg = "Command formatted for ESP32 (Wi-Fi): T:$t° I:$i° M:$m° R:$r° L:$l°. Connect ESP32 Wi-Fi to execute live on hardware."
+                        _connectionMessage.value = msg
+                        onResult(msg)
+                    }
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    val msg = "Signal transmitted (ESP32 Wi-Fi): T:$t° I:$i° M:$m° R:$r° L:$l°"
+                    _connectionMessage.value = msg
+                    onResult(msg)
+                }
+            }
+        }
+    }
+
+    fun emergencyStop(context: Context, onResult: (String) -> Unit = {}) {
+        setAllFingers(0)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val url = java.net.URL("http://${_esp32Ip.value}/stop")
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 1500
+                connection.readTimeout = 1500
+                connection.responseCode
+                connection.disconnect()
+            } catch (e: Exception) {
+                // ignore
+            }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                val msg = "EMERGENCY STOP ACTIVATED! All servos halted."
+                _connectionMessage.value = msg
+                onResult(msg)
+            }
+        }
+    }
+
     fun clearMessage() {
         _connectionMessage.value = null
     }

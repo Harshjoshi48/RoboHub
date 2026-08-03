@@ -1,69 +1,108 @@
 import re
 
-# Update MainActivity.kt
-with open('./app/src/main/java/com/example/MainActivity.kt', 'r') as f:
-    content = f.read()
+with open("app/src/main/java/com/example/MainActivity.kt", "r") as f:
+    text = f.read()
 
-old_profile = """    composable(
-      route = "profile/{username}",
-      arguments = listOf(navArgument("username") { type = NavType.StringType })
-    ) { backStackEntry ->
-      val username = backStackEntry.arguments?.getString("username") ?: "User"
-      ProfileScreen(
-        username = username,
-        onLogout = {
-          navController.navigate("login") {
-            popUpTo(0)
-          }
+# Update LoginScreen signature
+text = text.replace(
+"""fun LoginScreen(
+  onLogin: (String) -> Unit,
+  onSignUp: () -> Unit,
+  onForgotPassword: () -> Unit,
+  onGoogleLogin: () -> Unit
+) {""",
+"""fun LoginScreen(
+  onLogin: (String) -> Unit,
+  onAdminLogin: () -> Unit,
+  onSignUp: () -> Unit,
+  onForgotPassword: () -> Unit,
+  onGoogleLogin: () -> Unit
+) {""")
+
+# Update LoginScreen call
+text = text.replace(
+"""      LoginScreen(
+        onLogin = { username ->
+          navController.navigate("welcome/$username")
         },
-        onNavigateToDashboard = {
-          navController.navigate("dashboard/$username") {
-            popUpTo(0)
-          }
+        onSignUp = {""",
+"""      LoginScreen(
+        onLogin = { username ->
+          navController.navigate("welcome/$username")
+        },
+        onAdminLogin = {
+          navController.navigate("admin_dashboard")
+        },
+        onSignUp = {""")
+
+# Update Login button logic
+text = text.replace(
+"""      onClick = {
+        if (username == "joshi" && password == "1234") {
+          onLogin(username)
+        } else {
+          Toast.makeText(context, "Invalid username or password", Toast.LENGTH_SHORT).show()
+        }
+      },""",
+"""      onClick = {
+        if (username == "admin@gmail.com" && password == "password-admin") {
+          onAdminLogin()
+        } else if (username == "joshi" && password == "1234") {
+          onLogin(username)
+        } else {
+          Toast.makeText(context, "Invalid username or password", Toast.LENGTH_SHORT).show()
+        }
+      },""")
+
+# Add admin_dashboard composable right after the login composable block
+text = text.replace(
+"""    composable("login") {
+      LoginScreen(
+        onLogin = { username ->
+          navController.navigate("welcome/$username")
+        },
+        onAdminLogin = {
+          navController.navigate("admin_dashboard")
+        },
+        onSignUp = {
+          navController.navigate("signup")
+        },
+        onForgotPassword = {
+          navController.navigate("forgot_password")
+        },
+        onGoogleLogin = {
+          navController.navigate("welcome/Google User")
         }
       )
-    }"""
-
-new_profile = """    composable(
-      route = "profile/{username}",
-      arguments = listOf(navArgument("username") { type = NavType.StringType })
-    ) { backStackEntry ->
-      val username = backStackEntry.arguments?.getString("username") ?: "User"
-      ProfileScreen(
-        username = username,
-        onLogout = {
-          navController.navigate("login") {
-            popUpTo(0)
-          }
+    }""",
+"""    composable("login") {
+      LoginScreen(
+        onLogin = { username ->
+          navController.navigate("welcome/$username")
         },
-        onNavigateToDashboard = {
-          navController.navigate("dashboard/$username") {
-            popUpTo(0)
-          }
+        onAdminLogin = {
+          navController.navigate("admin_dashboard")
         },
-        onNavigateToSettings = {
-          navController.navigate("settings")
+        onSignUp = {
+          navController.navigate("signup")
+        },
+        onForgotPassword = {
+          navController.navigate("forgot_password")
+        },
+        onGoogleLogin = {
+          navController.navigate("welcome/Google User")
         }
       )
     }
-    
-    composable("settings") {
-      SettingsScreen(
-        onBack = { navController.popBackStack() }
+    composable("admin_dashboard") {
+      AdminDashboardScreen(
+        onLogout = {
+          navController.navigate("login") {
+            popUpTo(0)
+          }
+        }
       )
-    }"""
+    }""")
 
-content = content.replace(old_profile, new_profile)
-
-with open('./app/src/main/java/com/example/MainActivity.kt', 'w') as f:
-    f.write(content)
-
-# Update AndroidManifest.xml
-with open('./app/src/main/AndroidManifest.xml', 'r') as f:
-    manifest = f.read()
-
-if "android.permission.ACCESS_NETWORK_STATE" not in manifest:
-    manifest = manifest.replace("<application", '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
-    with open('./app/src/main/AndroidManifest.xml', 'w') as f:
-        f.write(manifest)
-
+with open("app/src/main/java/com/example/MainActivity.kt", "w") as f:
+    f.write(text)

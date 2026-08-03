@@ -78,6 +78,9 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         onLogin = { username ->
           navController.navigate("welcome/$username")
         },
+        onAdminLogin = {
+          navController.navigate("admin_dashboard")
+        },
         onSignUp = {
           navController.navigate("signup")
         },
@@ -86,6 +89,15 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         },
         onGoogleLogin = {
           navController.navigate("welcome/Google User")
+        }
+      )
+    }
+    composable("admin_dashboard") {
+      AdminDashboardScreen(
+        onLogout = {
+          navController.navigate("login") {
+            popUpTo(0)
+          }
         }
       )
     }
@@ -194,6 +206,18 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         },
         onNavigateToReports = {
           navController.navigate("reports")
+        },
+        onNavigateToGestureStudio = {
+          navController.navigate("gesture_studio")
+        },
+        onNavigateToAIAssistant = {
+          navController.navigate("ai_assistant")
+        },
+        onNavigateToPermissions = {
+          navController.navigate("permissions/$username")
+        },
+        onNavigateToHandControl = {
+          navController.navigate("hand_control")
         }
       )
     }
@@ -217,17 +241,54 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         },
         onNavigateToSettings = {
           navController.navigate("settings")
+        },
+        onNavigateToHandControl = {
+          navController.navigate("hand_control")
+        },
+        onNavigateToAIAssistant = {
+          navController.navigate("ai_assistant")
+        },
+        onNavigateToReports = {
+          navController.navigate("reports")
         }
       )
     }
     
-        composable("reports") {
+            
+    
+        composable("hand_control") {
+      HandControlScreen(
+        onBack = { navController.popBackStack() },
+        onNavigateToHome = { navController.navigate("dashboard/User") },
+        onNavigateToAI = { navController.navigate("ai_assistant") },
+        onNavigateToReports = { navController.navigate("reports") },
+        onNavigateToProfile = { navController.navigate("profile/User") },
+        viewModel = dashboardViewModel
+      )
+    }
+
+    composable("ai_assistant") {
+      AIAssistantScreen(
+        viewModel = dashboardViewModel,
+        onBack = { navController.popBackStack() }
+      )
+    }
+    
+    composable("gesture_studio") {
+      GestureStudioScreen(
+        viewModel = dashboardViewModel,
+        onBack = { navController.popBackStack() }
+      )
+    }
+    
+    composable("reports") {
       ReportsScreen(
         onBack = { navController.popBackStack() }
       )
     }
     
     composable("settings") {
+      val currentUser = "User"
       SettingsScreen(
         viewModel = dashboardViewModel,
         onBack = { navController.popBackStack() },
@@ -235,6 +296,9 @@ fun AppNavigation(modifier: Modifier = Modifier) {
           navController.navigate("login") {
             popUpTo(0)
           }
+        },
+        onNavigateToPermissions = {
+          navController.navigate("permissions/$currentUser")
         }
       )
     }
@@ -321,6 +385,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 @Composable
 fun LoginScreen(
   onLogin: (String) -> Unit,
+  onAdminLogin: () -> Unit,
   onSignUp: () -> Unit,
   onForgotPassword: () -> Unit,
   onGoogleLogin: () -> Unit
@@ -454,7 +519,9 @@ fun LoginScreen(
 
     Button(
       onClick = {
-        if (username == "joshi" && password == "1234") {
+        if (username == "admin@gmail.com" && password == "password-admin") {
+          onAdminLogin()
+        } else if (username == "joshi" && password == "1234") {
           onLogin(username)
         } else {
           Toast.makeText(context, "Invalid username or password", Toast.LENGTH_SHORT).show()

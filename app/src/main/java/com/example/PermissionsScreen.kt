@@ -1,29 +1,40 @@
 package com.example
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -70,7 +81,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
   }
 
   val locationPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-  
+
   val notificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
     arrayOf(Manifest.permission.POST_NOTIFICATIONS)
   } else {
@@ -78,7 +89,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
   }
 
   val cameraPermission = arrayOf(Manifest.permission.CAMERA)
-  
+
   val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
     arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
   } else {
@@ -125,17 +136,17 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       verticalAlignment = Alignment.CenterVertically
     ) {
       IconButton(onClick = onBack) {
-        Icon(painter = painterResource(android.R.drawable.ic_menu_revert), contentDescription = "Back", tint = primaryBlue)
+        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = primaryBlue)
       }
-      
+
       Text(
         text = "NeuroGrip",
         style = MaterialTheme.typography.titleLarge,
         color = Color.LightGray,
         fontWeight = FontWeight.Bold
       )
-      
-      IconButton(onClick = { /* Help */ }) {
+
+      IconButton(onClick = { Toast.makeText(context, "Help & Instructions", Toast.LENGTH_SHORT).show() }) {
         Icon(
           painter = painterResource(android.R.drawable.ic_menu_help),
           contentDescription = "Help",
@@ -184,7 +195,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       modifier = Modifier.padding(bottom = 24.dp)
     )
 
-    // Image Card
+    // Device Status Card
     Card(
       modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
       shape = RoundedCornerShape(16.dp),
@@ -194,26 +205,28 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
         Box(
           modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
+            .height(100.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(primaryBlue.copy(alpha = 0.1f)),
           contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painter = painterResource(android.R.drawable.ic_dialog_info),
-                contentDescription = null,
-                tint = primaryBlue,
-                modifier = Modifier.size(64.dp)
-            )
+          Icon(
+            imageVector = Icons.Outlined.Shield,
+            contentDescription = null,
+            tint = primaryBlue,
+            modifier = Modifier.size(56.dp)
+          )
         }
+
         Spacer(modifier = Modifier.height(16.dp))
+
         Text("Preparing Your Device", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
           "NeuroGrip requires a few permissions to securely communicate with your medical devices and provide intelligent rehabilitation.",
           style = MaterialTheme.typography.bodySmall,
           color = textGray,
-          textAlign = androidx.compose.ui.text.style.TextAlign.Center
+          textAlign = TextAlign.Center
         )
       }
     }
@@ -222,9 +235,9 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       if (requestedState && !currentState) {
         launcher.launch(permissions)
       } else if (!requestedState && currentState) {
-        android.widget.Toast.makeText(context, "Permissions must be revoked in device App Settings", android.widget.Toast.LENGTH_LONG).show()
-        val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = android.net.Uri.fromParts("package", context.packageName, null)
+        Toast.makeText(context, "Permissions must be revoked in device App Settings", Toast.LENGTH_LONG).show()
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+          data = Uri.fromParts("package", context.packageName, null)
         }
         context.startActivity(intent)
       }
@@ -238,7 +251,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       isGranted = hasBluetooth,
       onToggle = { handleToggle(it, hasBluetooth, bluetoothPermissions) }
     )
-    
+
     PermissionItem(
       title = "Wi-Fi / Local Network",
       desc = "Required for communication with the ESP32 controller.",
@@ -246,7 +259,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       isGranted = hasLocation,
       onToggle = { handleToggle(it, hasLocation, locationPermissions) }
     )
-    
+
     if (notificationPermission.isNotEmpty()) {
       PermissionItem(
         title = "Notifications",
@@ -256,7 +269,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
         onToggle = { handleToggle(it, hasNotification, notificationPermission) }
       )
     }
-    
+
     PermissionItem(
       title = "Camera",
       desc = "Used for QR device pairing and future AI Vision features.",
@@ -264,7 +277,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       isGranted = hasCamera,
       onToggle = { handleToggle(it, hasCamera, cameraPermission) }
     )
-    
+
     PermissionItem(
       title = "Storage",
       desc = "Save reports, therapy history and PDF exports.",
@@ -273,40 +286,38 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       onToggle = { handleToggle(it, hasStorage, storagePermissions) }
     )
 
-    Spacer(modifier = Modifier.height(24.dp))
-    
-    // System Readiness
+    Spacer(modifier = Modifier.height(16.dp))
+
+    // Connectivity Status Summary
     Card(
-      modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+      modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
       shape = RoundedCornerShape(16.dp),
-      colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8FF))
+      colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))
     ) {
       Column(modifier = Modifier.padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
-          Icon(painter = painterResource(android.R.drawable.ic_menu_info_details), contentDescription = null, tint = primaryBlue, modifier = Modifier.size(20.dp))
-          Spacer(modifier = Modifier.width(8.dp))
-          Text("System Readiness", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)
-        }
-        Row(modifier = Modifier.fillMaxWidth()) {
+        Text("CONNECTIVITY STATUS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = textGray)
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
           Column(modifier = Modifier.weight(1f)) {
             Text("BLUETOOTH", style = MaterialTheme.typography.labelSmall, color = textGray)
             Row(verticalAlignment = Alignment.CenterVertically) {
-              Box(modifier = Modifier.size(6.dp).background(if (hasBluetooth) Color.Green else Color.Gray, CircleShape))
+              Box(modifier = Modifier.size(6.dp).background(if (hasBluetooth) Color(0xFF10B981) else Color.Gray, CircleShape))
               Spacer(modifier = Modifier.width(4.dp))
               Text(if (hasBluetooth) "Ready" else "Waiting", style = MaterialTheme.typography.bodySmall, color = Color.Black)
             }
-            Spacer(modifier = Modifier.height(12.dp))
+          }
+          Column(modifier = Modifier.weight(1f)) {
             Text("INTERNET", style = MaterialTheme.typography.labelSmall, color = textGray)
             Row(verticalAlignment = Alignment.CenterVertically) {
-              Box(modifier = Modifier.size(6.dp).background(if (hasInternet) Color.Green else Color.Gray, CircleShape))
+              Box(modifier = Modifier.size(6.dp).background(if (hasInternet) Color(0xFF10B981) else Color.Gray, CircleShape))
               Spacer(modifier = Modifier.width(4.dp))
               Text(if (hasInternet) "Connected" else "Not Connected", style = MaterialTheme.typography.bodySmall, color = Color.Black)
             }
           }
           Column(modifier = Modifier.weight(1f)) {
-            Text("WI-FI", style = MaterialTheme.typography.labelSmall, color = textGray)
+            Text("WI-FI / LOCATION", style = MaterialTheme.typography.labelSmall, color = textGray)
             Row(verticalAlignment = Alignment.CenterVertically) {
-              Box(modifier = Modifier.size(6.dp).background(if (hasLocation) Color.Green else Color.Gray, CircleShape))
+              Box(modifier = Modifier.size(6.dp).background(if (hasLocation) Color(0xFF10B981) else Color.Gray, CircleShape))
               Spacer(modifier = Modifier.width(4.dp))
               Text(if (hasLocation) "Ready" else "Waiting", style = MaterialTheme.typography.bodySmall, color = Color.Black)
             }
@@ -314,7 +325,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
         }
       }
     }
-    
+
     // Medical Data Protection
     Card(
       modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
@@ -323,19 +334,19 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
     ) {
       Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(40.dp).background(primaryBlue, CircleShape), contentAlignment = Alignment.Center) {
-           Icon(painter = painterResource(android.R.drawable.ic_secure), contentDescription = null, tint = Color.White)
+          Icon(Icons.Outlined.Shield, contentDescription = null, tint = Color.White)
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column {
           Text("Your Medical Data is Protected", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.Black)
           Row(modifier = Modifier.padding(top = 4.dp)) {
             Column {
-               Text("✓ End-to-End Encryption", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
-               Text("✓ Secure Device Pairing", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
+              Text("✓ End-to-End Encryption", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
+              Text("✓ Secure Device Pairing", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-               Text("✓ HIPAA Compliant", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
+              Text("✓ HIPAA Compliant", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
             }
           }
         }
@@ -347,13 +358,13 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       onClick = {
         val allRequiredGranted = hasBluetooth && hasLocation
         if (!allRequiredGranted) {
-           val permissionsToRequest = mutableListOf<String>()
-           if (!hasBluetooth) permissionsToRequest.addAll(bluetoothPermissions)
-           if (!hasLocation) permissionsToRequest.addAll(locationPermissions)
-           launcher.launch(permissionsToRequest.toTypedArray())
-           showIncompleteDialog = true
+          val permissionsToRequest = mutableListOf<String>()
+          if (!hasBluetooth) permissionsToRequest.addAll(bluetoothPermissions)
+          if (!hasLocation) permissionsToRequest.addAll(locationPermissions)
+          launcher.launch(permissionsToRequest.toTypedArray())
+          showIncompleteDialog = true
         } else {
-           onContinue()
+          onContinue()
         }
       },
       modifier = Modifier
@@ -363,21 +374,21 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
     ) {
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(painter = painterResource(android.R.drawable.checkbox_on_background), contentDescription = "Allow", tint = Color.White, modifier = Modifier.size(20.dp))
+        Icon(Icons.Outlined.Shield, contentDescription = "Allow", tint = Color.White, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(8.dp))
         Text("Allow & Continue", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
       }
     }
 
     Spacer(modifier = Modifier.height(12.dp))
-    
+
     TextButton(
       onClick = onContinue,
       modifier = Modifier.fillMaxWidth()
     ) {
       Text("Configure Later", color = textGray)
     }
-    
+
     Spacer(modifier = Modifier.height(32.dp))
   }
 }
@@ -398,16 +409,15 @@ fun PermissionItem(title: String, desc: String, isRequired: Boolean, isGranted: 
         modifier = Modifier.size(40.dp).background(Color(0xFFE8F0FE), CircleShape),
         contentAlignment = Alignment.Center
       ) {
-         // Placeholder for icon, ideally you'd have specific icons for each.
-         val iconRes = when(title) {
-           "Bluetooth" -> android.R.drawable.stat_sys_data_bluetooth
-           "Wi-Fi / Local Network" -> android.R.drawable.ic_menu_compass // placeholder
-           "Notifications" -> android.R.drawable.ic_popup_reminder
-           "Camera" -> android.R.drawable.ic_menu_camera
-           "Storage" -> android.R.drawable.ic_menu_save
-           else -> android.R.drawable.ic_menu_info_details
-         }
-         Icon(painter = painterResource(id = iconRes), contentDescription = title, tint = Color(0xFF2F80ED), modifier = Modifier.size(24.dp))
+        val iconVector = when(title) {
+          "Bluetooth" -> Icons.Outlined.Bluetooth
+          "Wi-Fi / Local Network" -> Icons.Outlined.Wifi
+          "Notifications" -> Icons.Outlined.Notifications
+          "Camera" -> Icons.Outlined.CameraAlt
+          "Storage" -> Icons.Outlined.Folder
+          else -> Icons.Outlined.Info
+        }
+        Icon(imageVector = iconVector, contentDescription = title, tint = Color(0xFF2F80ED), modifier = Modifier.size(24.dp))
       }
       Spacer(modifier = Modifier.width(16.dp))
       Column(modifier = Modifier.weight(1f)) {
@@ -417,11 +427,11 @@ fun PermissionItem(title: String, desc: String, isRequired: Boolean, isGranted: 
         Spacer(modifier = Modifier.height(8.dp))
         if (isRequired) {
           Box(modifier = Modifier.background(if (isGranted) Color(0xFFE8F5E9) else Color(0xFFFFEBEE), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-             Text(if (isGranted) "GRANTED" else "NOT GRANTED", fontSize = 10.sp, color = if (isGranted) Color(0xFF2E7D32) else Color(0xFFC62828), fontWeight = FontWeight.Bold)
+            Text(if (isGranted) "GRANTED" else "NOT GRANTED", fontSize = 10.sp, color = if (isGranted) Color(0xFF2E7D32) else Color(0xFFC62828), fontWeight = FontWeight.Bold)
           }
         } else {
           Box(modifier = Modifier.background(Color(0xFFF5F5F5), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-             Text("OPTIONAL", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+            Text("OPTIONAL", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
           }
         }
       }
@@ -433,6 +443,7 @@ fun PermissionItem(title: String, desc: String, isRequired: Boolean, isGranted: 
     }
   }
 }
+
 
 fun checkBluetoothPermission(context: android.content.Context): Boolean {
   val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

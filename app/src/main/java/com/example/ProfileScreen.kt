@@ -38,7 +38,10 @@ fun ProfileScreen(
     username: String,
     onLogout: () -> Unit,
     onNavigateToDashboard: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToHandControl: () -> Unit = {},
+    onNavigateToAIAssistant: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {}
 ) {
     val primaryBlue = Color(0xFF0055AA)
     val buttonBlue = Color(0xFF4A7499)
@@ -95,14 +98,21 @@ fun ProfileScreen(
                     icon = { Icon(Icons.Outlined.PanTool, contentDescription = "Control") },
                     label = { Text("Control", fontSize = 10.sp) },
                     selected = false,
-                    onClick = { },
+                    onClick = onNavigateToHandControl,
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Outlined.Psychology, contentDescription = "AI") },
                     label = { Text("AI", fontSize = 10.sp) },
                     selected = false,
-                    onClick = { },
+                    onClick = onNavigateToAIAssistant,
+                    colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Outlined.Timeline, contentDescription = "Progress") },
+                    label = { Text("Progress", fontSize = 10.sp) },
+                    selected = false,
+                    onClick = onNavigateToReports,
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
                 )
                 NavigationBarItem(

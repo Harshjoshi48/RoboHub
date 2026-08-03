@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 
 @Composable
-fun DashboardScreen(username: String, onLogout: () -> Unit, onNavigateToNotifications: () -> Unit = {}, onNavigateToProfile: () -> Unit = {}, onNavigateToSettings: () -> Unit = {}, onNavigateToReports: () -> Unit = {}, viewModel: DashboardViewModel = viewModel()) {
+fun DashboardScreen(username: String, onLogout: () -> Unit, onNavigateToNotifications: () -> Unit = {}, onNavigateToProfile: () -> Unit = {}, onNavigateToSettings: () -> Unit = {}, onNavigateToReports: () -> Unit = {}, onNavigateToGestureStudio: () -> Unit = {}, onNavigateToAIAssistant: () -> Unit = {}, onNavigateToPermissions: () -> Unit = {}, onNavigateToHandControl: () -> Unit = {}, viewModel: DashboardViewModel = viewModel()) {
     val primaryBlue = Color(0xFF5A81A5)
     val buttonBlue = Color(0xFF4A7499)
     val textGray = Color(0xFF64748B)
@@ -123,21 +123,21 @@ fun DashboardScreen(username: String, onLogout: () -> Unit, onNavigateToNotifica
                     icon = { Icon(Icons.Outlined.PanTool, contentDescription = "Control") },
                     label = { Text("Control", fontSize = 10.sp) },
                     selected = false,
-                    onClick = { },
+                    onClick = onNavigateToHandControl,
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Outlined.Psychology, contentDescription = "AI") },
                     label = { Text("AI", fontSize = 10.sp) },
                     selected = false,
-                    onClick = { },
+                    onClick = onNavigateToAIAssistant,
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Outlined.Timeline, contentDescription = "Progress") },
                     label = { Text("Progress", fontSize = 10.sp) },
                     selected = false,
-                    onClick = { },
+                    onClick = onNavigateToReports,
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
                 )
                 NavigationBarItem(
@@ -307,7 +307,7 @@ Text("NeuroGrip Ready", style = MaterialTheme.typography.headlineSmall, fontWeig
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedButton(
-                        onClick = { },
+                        onClick = onNavigateToAIAssistant,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
                         border = BorderStroke(1.dp, buttonBlue.copy(alpha = 0.3f))
@@ -329,6 +329,59 @@ Text("NeuroGrip Ready", style = MaterialTheme.typography.headlineSmall, fontWeig
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Device Permissions & Setup Wizard Entry
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .clickable { onNavigateToPermissions() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(buttonBlue, RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Shield,
+                            contentDescription = "Permissions",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Device Permissions & Setup",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = darkText
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            "Step 2 of 4: Bluetooth, Location & Sensors",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textGray
+                        )
+                    }
+                    Text(
+                        "Manage",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = buttonBlue
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             // Control Modes
             Text(
                 "CONTROL MODES",
@@ -344,7 +397,7 @@ Text("NeuroGrip Ready", style = MaterialTheme.typography.headlineSmall, fontWeig
                 Spacer(modifier = Modifier.height(12.dp))
                 ModeItem(Icons.Outlined.SettingsInputAntenna, "Muscle Control (EMG)", cardBg, darkText, borderLight)
                 Spacer(modifier = Modifier.height(12.dp))
-                ModeItem(Icons.Outlined.PhoneAndroid, "App Control", cardBg, darkText, borderLight)
+                ModeItem(Icons.Outlined.PhoneAndroid, "App Control", cardBg, darkText, borderLight, onClick = onNavigateToHandControl)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -520,11 +573,11 @@ Text("NeuroGrip Ready", style = MaterialTheme.typography.headlineSmall, fontWeig
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                QuickActionCard(Icons.Outlined.PanTool, "Hand Control", Modifier.weight(1f), cardBg, darkText)
+                QuickActionCard(Icons.Outlined.PanTool, "Hand Control", Modifier.weight(1f), cardBg, darkText, onClick = onNavigateToHandControl)
                 Spacer(modifier = Modifier.width(12.dp))
                 QuickActionCard(Icons.Outlined.BarChart, "Reports", Modifier.weight(1f), cardBg, darkText, onClick = onNavigateToReports)
                 Spacer(modifier = Modifier.width(12.dp))
-                QuickActionCard(Icons.Outlined.Gesture, "Gesture Studio", Modifier.weight(1f), cardBg, darkText)
+                QuickActionCard(Icons.Outlined.Gesture, "Gesture Studio", Modifier.weight(1f), cardBg, darkText, onClick = onNavigateToGestureStudio)
             }
             
             Spacer(modifier = Modifier.height(40.dp))
@@ -599,9 +652,9 @@ fun StatItem(icon: ImageVector, label: String, value: String, darkText: Color, t
 }
 
 @Composable
-fun ModeItem(icon: ImageVector, title: String, cardBg: Color, darkText: Color, borderLight: Color) {
+fun ModeItem(icon: ImageVector, title: String, cardBg: Color, darkText: Color, borderLight: Color, onClick: () -> Unit = {}) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
