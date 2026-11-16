@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">NeuroPulse</string>
+    <string name="user_login_heading">Login</string>
+    <string name="login_otp_helper_text">Sign in to continue. A 6-digit OTP will be sent to your email.</string>
+    <string name="super_admin_login_heading">Super Admin Login</string>
+    <string name="super_admin_login_subtitle">Sign in with your Super Admin email.</string>
+    <string name="super_admin_restricted_notice">Restricted Access. Authorized Super Admin Only.</string>
+    <string name="super_admin_authorized_email" translatable="false">hj195345@gmail.com</string>
 </resources>

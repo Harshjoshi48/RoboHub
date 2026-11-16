@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -97,9 +98,11 @@ suspend fun sendGestureToESP32(gesture: HandGesture): Boolean {
 @Composable
 fun GestureStudioScreen(
     viewModel: DashboardViewModel = viewModel(),
+    adminViewModel: AdminViewModel = viewModel(),
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val allBanners by adminViewModel.banners.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     
     val primaryBlue = Color(0xFF2F80ED)
@@ -144,15 +147,14 @@ fun GestureStudioScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth().padding(end = 48.dp)
-                    ) {
-                        Text("Gesture Studio", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = primaryBlue)
-                        Text("Create & Manage Gestures", fontSize = 12.sp, color = textGray)
+            CenterAlignedTopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Gesture Studio", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = primaryBlue, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Create & Manage Gestures", fontSize = 12.sp, color = textGray, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
                 navigationIcon = {
@@ -160,18 +162,21 @@ fun GestureStudioScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = primaryBlue)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = lightBg)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = lightBg)
             )
         },
         containerColor = lightBg,
         bottomBar = {
-            Box(modifier = Modifier.padding(16.dp)) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Button(
-                    onClick = { 
+                    onClick = {
                         editingGesture = null
                         showCreateEditScreen = true
                     },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).heightIn(min = 56.dp),
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
                 ) {
@@ -180,11 +185,36 @@ fun GestureStudioScreen(
             }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 640.dp)
+                .fillMaxHeight()
+        ) {
+            DynamicBannerSlotHost(
+                banners = allBanners,
+                position = BannerPosition.CATEGORY,
+                username = adminViewModel.effectiveUsername(),
+                adminViewModel = adminViewModel,
+                callbacks = BannerNavigationCallbacks(
+                    onOpenScreen = { route ->
+                        if (route != "gesture_studio") onBack()
+                    },
+                    onOpenCategory = { cat ->
+                        Toast.makeText(context, "Active Category: $cat", Toast.LENGTH_SHORT).show()
+                    },
+                    onOpenProduct = { prod ->
+                        Toast.makeText(context, "Module: $prod", Toast.LENGTH_SHORT).show()
+                    }
+                ),
+                horizontalPaddingDp = 16
+            )
             // Offline Banner
             if (!isConnected) {
                 Surface(
@@ -196,7 +226,7 @@ fun GestureStudioScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("ESP32 is not connected.", color = Color(0xFF991B1B), fontSize = 12.sp, fontWeight = FontWeight.Medium)
@@ -206,24 +236,24 @@ fun GestureStudioScreen(
                                 viewModel.toggleConnection(context)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            modifier = Modifier.height(32.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            modifier = Modifier.heightIn(min = 40.dp)
                         ) {
                             if (isConnecting) {
                                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Connecting", fontSize = 12.sp, color = Color.White)
                             } else {
-                                Text("Click to Connect", fontSize = 12.sp, color = Color.White)
+                                Text("Connect", fontSize = 12.sp, color = Color.White)
                             }
                         }
                     }
                 }
             }
-            
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 80.dp)
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 80.dp)
             ) {
                 item {
                     // Header Card
@@ -331,52 +361,53 @@ fun GestureStudioScreen(
                                             Toast.makeText(context, "ESP32 is not connected", Toast.LENGTH_SHORT).show()
                                         }
                                     },
-                                    modifier = Modifier.weight(1f).height(36.dp),
+                                    modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEFF6FF), contentColor = primaryBlue),
-                                    contentPadding = PaddingValues(0.dp)
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
                                 ) {
                                     if (isSending == gesture.id) {
                                         CircularProgressIndicator(color = primaryBlue, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Sending", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                        Text("Sending", fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     } else {
                                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Test", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                        Text("Test", fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
-                                
+
                                 // Edit Button
                                 Button(
-                                    onClick = { 
+                                    onClick = {
                                         editingGesture = gesture
                                         showCreateEditScreen = true
                                     },
-                                    modifier = Modifier.weight(1f).height(36.dp),
+                                    modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEFF6FF), contentColor = primaryBlue),
-                                    contentPadding = PaddingValues(0.dp)
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
                                 ) {
                                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Edit", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    Text("Edit", fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
-                                
+
                                 // Delete Button
                                 Button(
                                     onClick = { showDeleteConfirm = gesture },
-                                    modifier = Modifier.weight(1f).height(36.dp),
+                                    modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEF2F2), contentColor = Color(0xFFDC2626)),
-                                    contentPadding = PaddingValues(0.dp)
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
                                 ) {
                                     Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Delete", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    Text("Delete", fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
                     }
                 }
             }
+        }
         }
     }
     
@@ -427,8 +458,10 @@ fun CreateEditGestureScreen(
     val context = LocalContext.current
     
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text(if (gesture == null) "Create Gesture" else "Edit Gesture", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkText) },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
@@ -440,7 +473,10 @@ fun CreateEditGestureScreen(
         },
         containerColor = lightBg,
         bottomBar = {
-            Box(modifier = Modifier.padding(16.dp)) {
+            Box(
+                modifier = Modifier.fillMaxWidth().imePadding().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Button(
                     onClick = {
                         if (name.isBlank()) {
@@ -452,7 +488,7 @@ fun CreateEditGestureScreen(
                         val newGesture = HandGesture(id, name, thumb, index, middle, ring, pinky, d, "")
                         onSave(newGesture)
                     },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).heightIn(min = 56.dp),
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
                 ) {
@@ -461,25 +497,31 @@ fun CreateEditGestureScreen(
             }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.TopCenter
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 640.dp)
                 .padding(horizontal = 24.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Gesture Name", color = Color(0xFF64748B)) },
                 textStyle = androidx.compose.ui.text.TextStyle(color = darkText, fontSize = 16.sp),
-                modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF94A3B8), RoundedCornerShape(12.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFF94A3B8),
                     focusedTextColor = darkText,
                     unfocusedTextColor = darkText,
                     focusedContainerColor = Color.White,
@@ -487,30 +529,30 @@ fun CreateEditGestureScreen(
                 ),
                 singleLine = true
             )
-            
+
             Spacer(modifier = Modifier.height(24.dp))
             Text("Finger Angles (0° - 180°)", fontWeight = FontWeight.Bold, color = darkText)
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             FingerSlider("Thumb", thumb) { thumb = it }
             FingerSlider("Index Finger", index) { index = it }
             FingerSlider("Middle Finger", middle) { middle = it }
             FingerSlider("Ring Finger", ring) { ring = it }
             FingerSlider("Pinky Finger", pinky) { pinky = it }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             OutlinedTextField(
                 value = delayStr,
                 onValueChange = { delayStr = it },
                 label = { Text("Speed/Delay (ms)", color = Color(0xFF64748B)) },
                 textStyle = androidx.compose.ui.text.TextStyle(color = darkText, fontSize = 16.sp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF94A3B8), RoundedCornerShape(12.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFF94A3B8),
                     focusedTextColor = darkText,
                     unfocusedTextColor = darkText,
                     focusedContainerColor = Color.White,
@@ -518,8 +560,9 @@ fun CreateEditGestureScreen(
                 ),
                 singleLine = true
             )
-            
+
             Spacer(modifier = Modifier.height(80.dp))
+        }
         }
     }
 }

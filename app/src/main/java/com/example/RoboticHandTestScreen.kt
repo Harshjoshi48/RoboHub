@@ -20,45 +20,67 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 
 @Composable
 fun RoboticHandTestScreen(onBack: () -> Unit, onComplete: () -> Unit) {
+    val context = LocalContext.current
+    val appBranding by AppBrandingCacheStore.stateFlow(context).collectAsStateWithLifecycle()
     val primaryBlue = Color(0xFF0052CC)
     val textGray = Color(0xFF727785)
     val lightBg = Color(0xFFF8F9FA)
     val redColor = Color(0xFFD32F2F)
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(lightBg)
-            .systemBarsPadding()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
+        contentAlignment = Alignment.TopCenter
+    ) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .widthIn(max = 640.dp)
     ) {
         // Top Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
                 Icon(painter = painterResource(android.R.drawable.ic_menu_revert), contentDescription = "Back", tint = primaryBlue)
             }
-            Text(
-                text = "NeuroGrip",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = primaryBlue
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (appBranding.hasCustomLogo) {
+                    AppBrandingLogo(
+                        branding = appBranding,
+                        size = 24.dp,
+                        cornerRadius = 6.dp,
+                        testTag = "hand_test_branding_logo"
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text(
+                    text = appBranding.appName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = primaryBlue,
+                    modifier = Modifier.testTag("hand_test_branding_app_name")
+                )
+            }
             IconButton(onClick = { /* Help */ }) {
                 Icon(painter = painterResource(android.R.drawable.ic_menu_help), contentDescription = "Help", tint = primaryBlue)
             }
@@ -73,14 +95,13 @@ fun RoboticHandTestScreen(onBack: () -> Unit, onComplete: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(modifier = Modifier.height(3.dp).width(25.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
-                    Box(modifier = Modifier.height(3.dp).width(25.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
-                    Box(modifier = Modifier.height(3.dp).width(25.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
-                    Box(modifier = Modifier.height(3.dp).width(25.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
-                    Box(modifier = Modifier.height(3.dp).width(25.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
-                    Box(modifier = Modifier.height(3.dp).width(25.dp).background(Color(0xFFEBEBEB), RoundedCornerShape(1.5.dp)))
+                    Box(modifier = Modifier.height(3.dp).width(28.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
+                    Box(modifier = Modifier.height(3.dp).width(28.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
+                    Box(modifier = Modifier.height(3.dp).width(28.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
+                    Box(modifier = Modifier.height(3.dp).width(28.dp).background(primaryBlue, RoundedCornerShape(1.5.dp)))
+                    Box(modifier = Modifier.height(3.dp).width(28.dp).background(Color(0xFFEBEBEB), RoundedCornerShape(1.5.dp)))
                 }
-                Text("STEP 5 OF 6", style = MaterialTheme.typography.labelSmall, color = textGray, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                Text("STEP 4 OF 5", style = MaterialTheme.typography.labelSmall, color = textGray, fontWeight = FontWeight.Bold, fontSize = 10.sp)
             }
 
             Text(
@@ -282,38 +303,39 @@ fun RoboticHandTestScreen(onBack: () -> Unit, onComplete: () -> Unit) {
 
             Button(
                 onClick = onComplete,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
             ) {
-                Text("COMPLETE SETUP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("COMPLETE SETUP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
             }
             
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedButton(
                 onClick = {}, // Refresh/run test again
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
                 shape = RoundedCornerShape(28.dp),
                 border = BorderStroke(1.dp, primaryBlue)
             ) {
                 Icon(imageVector = Icons.Default.Refresh, contentDescription = null, tint = primaryBlue, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("RUN TEST AGAIN", style = MaterialTheme.typography.titleMedium, color = primaryBlue, fontWeight = FontWeight.SemiBold)
+                Text("RUN TEST AGAIN", style = MaterialTheme.typography.titleMedium, color = primaryBlue, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             TextButton(
                 onClick = onComplete,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 shape = RoundedCornerShape(28.dp)
             ) {
-                Text("CONFIGURE LATER", style = MaterialTheme.typography.titleMedium, color = textGray, fontWeight = FontWeight.SemiBold)
+                Text("CONFIGURE LATER", style = MaterialTheme.typography.titleMedium, color = textGray, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
             }
 
             Spacer(modifier = Modifier.height(40.dp))
         }
+    }
     }
 }
 
@@ -341,20 +363,20 @@ fun ProtocolItem(name: String, status: String) {
 @Composable
 fun ControlModeCard(title: String, iconRes: Int, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.aspectRatio(0.8f),
+        modifier = modifier.heightIn(min = 108.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFEBEBEB)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(painter = painterResource(id = iconRes), contentDescription = null, tint = Color.Gray, modifier = Modifier.size(28.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(title, style = MaterialTheme.typography.labelSmall, color = Color.Black, fontSize = 9.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(title, style = MaterialTheme.typography.labelSmall, color = Color.Black, fontSize = 9.sp, lineHeight = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Box(modifier = Modifier.size(24.dp).background(Color(0xFFF1F8FF), CircleShape), contentAlignment = Alignment.Center) {
                 Icon(painter = painterResource(android.R.drawable.arrow_up_float), contentDescription = null, tint = Color(0xFF0052CC), modifier = Modifier.size(14.dp))

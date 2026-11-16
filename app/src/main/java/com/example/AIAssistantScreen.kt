@@ -18,9 +18,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.PanTool
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,11 +34,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 data class ChatMessage(val id: String = java.util.UUID.randomUUID().toString(), val text: String, val isUser: Boolean)
@@ -82,14 +91,20 @@ fun checkNetworkConnectivity(context: Context): Boolean {
 @Composable
 fun AIAssistantScreen(
     viewModel: DashboardViewModel = viewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToHome: () -> Unit = onBack,
+    onNavigateToControl: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val appBranding by AppBrandingCacheStore.stateFlow(context).collectAsStateWithLifecycle()
     
     val isOnline by rememberNetworkConnectivityState()
     
     val primaryBlue = Color(0xFF2F80ED)
+    val buttonBlue = Color(0xFF4A7499)
     val lightBg = Color(0xFFF8FAFC)
     val darkText = Color(0xFF1E293B)
     val textGray = Color(0xFF64748B)
@@ -123,103 +138,198 @@ fun AIAssistantScreen(
         
         coroutineScope.launch {
             delay(1500)
-            val prefs = context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
-            val apiKey = prefs.getString("gemini_api_key", "") ?: ""
-            val reply = if (apiKey.isNotBlank()) {
-                "API Key is configured! Ready to send real AI requests."
-            } else {
-                "This is a simulated response. Please configure the Gemini API key in the admin panel."
-            }
+            val reply = "This is a simulated AI response."
             messages = messages + ChatMessage(text = reply, isUser = false)
             isTyping = false
         }
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text("AI Assistant", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkText)
-                            Text("NeuroGrip Smart Assistant", fontSize = 12.sp, color = textGray)
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+            Surface(color = Color.White) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 720.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .heightIn(min = 64.dp)
+                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = darkText)
+                        }
+                        IconButton(
+                            onClick = onNavigateToProfile,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.size(36.dp).background(Color(0xFFE2E8F0), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = "Profile", tint = primaryBlue, modifier = Modifier.size(22.dp))
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                "AI Assistant",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = darkText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (appBranding.hasCustomLogo) {
+                                AppBrandingLogo(
+                                    branding = appBranding,
+                                    size = 16.dp,
+                                    cornerRadius = 4.dp,
+                                    testTag = "ai_branding_logo"
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                "${appBranding.appName} Smart Assistant",
+                                fontSize = 12.sp,
+                                color = textGray,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.testTag("ai_branding_app_name")
+                            )
+                        }
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
                                 Box(modifier = Modifier.size(6.dp).background(if (isOnline) Color(0xFF10B981) else Color(0xFFEF4444), CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (isOnline) "AI ONLINE" else "AI OFFLINE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isOnline) Color(0xFF10B981) else Color(0xFFEF4444))
+                                Text(
+                                    if (isOnline) "AI ONLINE" else "AI OFFLINE",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isOnline) Color(0xFF10B981) else Color(0xFFEF4444)
+                                )
                             }
                         }
-                    },
-                    navigationIcon = {
-                        Row {
-                            IconButton(onClick = onBack) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = darkText)
-                            }
-                            IconButton(onClick = { Toast.makeText(context, "Profile clicked", Toast.LENGTH_SHORT).show() }) {
-                                Box(
-                                    modifier = Modifier.size(36.dp).background(Color(0xFFE2E8F0), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Person, contentDescription = "Profile", tint = primaryBlue, modifier = Modifier.size(24.dp))
-                                }
-                            }
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = { messages = emptyList() }) {
+                        IconButton(onClick = { messages = emptyList() }, modifier = Modifier.size(48.dp)) {
                             Icon(Icons.AutoMirrored.Filled.Message, contentDescription = "New Chat", tint = primaryBlue)
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-                )
-                HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 1.dp)
+                    }
+                    HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 1.dp)
+                }
             }
         },
         containerColor = lightBg,
         bottomBar = {
-            Surface(
-                color = Color.White,
-                shadowElevation = 8.dp,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Column(modifier = Modifier.fillMaxWidth().imePadding()) {
+                Surface(
+                    color = Color.White,
+                    shadowElevation = 8.dp,
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    IconButton(onClick = { Toast.makeText(context, "Voice input clicked", Toast.LENGTH_SHORT).show() }) {
-                        Icon(Icons.Default.Mic, contentDescription = "Voice Input", tint = textGray)
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = 720.dp)
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { Toast.makeText(context, "Voice input clicked", Toast.LENGTH_SHORT).show() },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(Icons.Default.Mic, contentDescription = "Voice Input", tint = textGray)
+                            }
+
+                            OutlinedTextField(
+                                value = inputText,
+                                onValueChange = { inputText = it },
+                                placeholder = { Text("Ask NeuroGrip AI...", color = Color(0xFFA0AEC0)) },
+                                modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
+                                shape = RoundedCornerShape(24.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = darkText,
+                                    unfocusedTextColor = darkText,
+                                    focusedBorderColor = Color(0xFFE2E8F0),
+                                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                                    focusedContainerColor = Color(0xFFF1F5F9),
+                                    unfocusedContainerColor = Color(0xFFF1F5F9)
+                                ),
+                                singleLine = true,
+                                maxLines = 1
+                            )
+
+                            IconButton(
+                                onClick = { sendMessage(inputText) },
+                                modifier = Modifier.size(48.dp).background(primaryBlue, CircleShape)
+                            ) {
+                                Icon(Icons.Default.ArrowUpward, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                        }
                     }
-                    
-                    OutlinedTextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        placeholder = { Text("Ask NeuroGrip AI...", color = Color(0xFFA0AEC0)) },
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = darkText,
-                            unfocusedTextColor = darkText,
-                            focusedBorderColor = Color(0xFFE2E8F0),
-                            unfocusedBorderColor = Color(0xFFE2E8F0),
-                            focusedContainerColor = Color(0xFFF1F5F9),
-                            unfocusedContainerColor = Color(0xFFF1F5F9)
-                        ),
-                        singleLine = true,
-                        maxLines = 1
+                }
+                HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 1.dp)
+                NavigationBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    containerColor = Color.White,
+                    tonalElevation = 16.dp,
+                    modifier = Modifier.testTag("ai_bottom_nav_bar")
+                ) {
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Outlined.Home, contentDescription = "Home") },
+                        label = { Text("Home", fontSize = 10.sp) },
+                        selected = false,
+                        onClick = onNavigateToHome,
+                        colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
                     )
-                    
-                    IconButton(
-                        onClick = { sendMessage(inputText) },
-                        modifier = Modifier.background(primaryBlue, CircleShape).size(40.dp)
-                    ) {
-                        Icon(Icons.Default.ArrowUpward, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(20.dp))
-                    }
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Outlined.PanTool, contentDescription = "Control") },
+                        label = { Text("Control", fontSize = 10.sp) },
+                        selected = false,
+                        onClick = onNavigateToControl,
+                        colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Filled.Psychology, contentDescription = "AI") },
+                        label = { Text("AI", fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+                        selected = true,
+                        onClick = { },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = buttonBlue,
+                            selectedTextColor = buttonBlue,
+                            indicatorColor = buttonBlue.copy(alpha = 0.15f),
+                            unselectedIconColor = textGray,
+                            unselectedTextColor = textGray
+                        )
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Outlined.Timeline, contentDescription = "Progress") },
+                        label = { Text("Progress", fontSize = 10.sp) },
+                        selected = false,
+                        onClick = onNavigateToReports,
+                        colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Outlined.Person, contentDescription = "Profile") },
+                        label = { Text("Profile", fontSize = 10.sp) },
+                        selected = false,
+                        onClick = onNavigateToProfile,
+                        colors = NavigationBarItemDefaults.colors(unselectedIconColor = textGray, unselectedTextColor = textGray)
+                    )
                 }
             }
         }
     ) { padding ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentAlignment = Alignment.TopCenter
+        ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding)
+            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp).fillMaxHeight()
         ) {
             if (messages.isEmpty()) {
                 // Quick Suggestions
@@ -298,18 +408,19 @@ fun AIAssistantScreen(
                 }
             }
         }
+        }
     }
 }
 
 @Composable
 fun SuggestionCard(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
-        modifier = modifier.height(100.dp).clickable { onClick() },
+        modifier = modifier.heightIn(min = 104.dp).clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.CenterStart) {
+        Box(modifier = Modifier.fillMaxWidth().padding(14.dp), contentAlignment = Alignment.CenterStart) {
             Text(text, fontSize = 14.sp, color = Color(0xFF1E293B), lineHeight = 20.sp)
         }
     }

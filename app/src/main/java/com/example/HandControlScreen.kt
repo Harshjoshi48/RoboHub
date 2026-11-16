@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,9 +44,11 @@ fun HandControlScreen(
   onNavigateToAI: () -> Unit,
   onNavigateToReports: () -> Unit,
   onNavigateToProfile: () -> Unit,
-  viewModel: DashboardViewModel
+  viewModel: DashboardViewModel,
+  adminViewModel: AdminViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
   val context = LocalContext.current
+  val allBanners by adminViewModel.banners.collectAsState()
 
   val primaryBlue = Color(0xFF2F80ED)
   val lightBg = Color(0xFFF8F9FA)
@@ -74,9 +77,11 @@ fun HandControlScreen(
   }
 
   Scaffold(
+    contentWindowInsets = WindowInsets(0, 0, 0, 0),
     snackbarHost = { SnackbarHost(snackbarHostState) },
     bottomBar = {
       NavigationBar(
+        windowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = Color.White,
         tonalElevation = 16.dp
       ) {
@@ -134,13 +139,19 @@ fun HandControlScreen(
       }
     }
   ) { paddingValues ->
-    Column(
+    Box(
       modifier = Modifier
         .fillMaxSize()
         .background(lightBg)
         .padding(paddingValues)
-        .verticalScroll(rememberScrollState())
-        .padding(horizontal = 20.dp, vertical = 16.dp)
+        .verticalScroll(rememberScrollState()),
+      contentAlignment = Alignment.TopCenter
+    ) {
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .widthIn(max = 680.dp)
+        .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
       // Header Row
       Row(
@@ -150,7 +161,7 @@ fun HandControlScreen(
       ) {
         IconButton(
           onClick = onBack,
-          modifier = Modifier.size(40.dp)
+          modifier = Modifier.size(48.dp)
         ) {
           Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -163,17 +174,21 @@ fun HandControlScreen(
           text = "Hand Control",
           style = MaterialTheme.typography.titleLarge,
           fontWeight = FontWeight.Bold,
-          color = darkText
+          color = darkText,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          textAlign = TextAlign.Center,
+          modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
         )
 
         Surface(
           onClick = { viewModel.toggleConnection(context) },
           shape = RoundedCornerShape(20.dp),
           color = if (isConnected) Color(0xFFE6F4EA) else Color(0xFFFEF3C7),
-          modifier = Modifier.clip(RoundedCornerShape(20.dp))
+          modifier = Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp))
         ) {
           Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
             Box(
@@ -194,6 +209,31 @@ fun HandControlScreen(
           }
         }
       }
+
+      Spacer(modifier = Modifier.height(6.dp))
+      DynamicBannerSlotHost(
+          banners = allBanners,
+          position = BannerPosition.PRODUCT_DETAILS,
+          username = adminViewModel.effectiveUsername(),
+          adminViewModel = adminViewModel,
+          callbacks = BannerNavigationCallbacks(
+              onOpenScreen = { route ->
+                  when (route) {
+                      "ai_assistant" -> onNavigateToAI()
+                      "reports" -> onNavigateToReports()
+                      "profile" -> onNavigateToProfile()
+                      else -> onNavigateToHome()
+                  }
+              },
+              onOpenCategory = { cat ->
+                  Toast.makeText(context, "Category: $cat", Toast.LENGTH_SHORT).show()
+              },
+              onOpenProduct = { prod ->
+                  Toast.makeText(context, "Module Selected: $prod", Toast.LENGTH_SHORT).show()
+              }
+          ),
+          horizontalPaddingDp = 0
+      )
 
       Spacer(modifier = Modifier.height(20.dp))
 
@@ -312,7 +352,7 @@ fun HandControlScreen(
         },
         modifier = Modifier
           .fillMaxWidth()
-          .height(56.dp),
+          .heightIn(min = 56.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
@@ -329,7 +369,8 @@ fun HandControlScreen(
           style = MaterialTheme.typography.titleMedium,
           fontWeight = FontWeight.Bold,
           color = Color.White,
-          letterSpacing = 0.5.sp
+          letterSpacing = 0.5.sp,
+          textAlign = TextAlign.Center
         )
       }
 
@@ -340,7 +381,7 @@ fun HandControlScreen(
         onClick = { viewModel.setHomePosition() },
         modifier = Modifier
           .fillMaxWidth()
-          .height(52.dp),
+          .heightIn(min = 52.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = lightBlueBtn)
       ) {
@@ -356,7 +397,8 @@ fun HandControlScreen(
           style = MaterialTheme.typography.titleSmall,
           fontWeight = FontWeight.Bold,
           color = primaryBlue,
-          letterSpacing = 0.5.sp
+          letterSpacing = 0.5.sp,
+          textAlign = TextAlign.Center
         )
       }
 
@@ -371,7 +413,7 @@ fun HandControlScreen(
         },
         modifier = Modifier
           .fillMaxWidth()
-          .height(56.dp)
+          .heightIn(min = 56.dp)
           .shadow(4.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = redEmergency)
@@ -388,11 +430,13 @@ fun HandControlScreen(
           style = MaterialTheme.typography.titleMedium,
           fontWeight = FontWeight.ExtraBold,
           color = Color.White,
-          letterSpacing = 0.8.sp
+          letterSpacing = 0.8.sp,
+          textAlign = TextAlign.Center
         )
       }
 
       Spacer(modifier = Modifier.height(24.dp))
+    }
     }
   }
 }
@@ -414,8 +458,8 @@ fun FingerControlRow(
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 12.dp),
-      horizontalArrangement = Arrangement.SpaceBetween,
+        .padding(horizontal = 14.dp, vertical = 10.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
       Text(
@@ -423,11 +467,14 @@ fun FingerControlRow(
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
         color = Color(0xFF1E293B),
-        modifier = Modifier.width(70.dp)
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(0.9f)
       )
 
       Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.weight(2.1f),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
       ) {
         listOf(0, 90, 180).forEach { angle ->
@@ -436,8 +483,8 @@ fun FingerControlRow(
 
           Box(
             modifier = Modifier
-              .width(60.dp)
-              .height(38.dp)
+              .weight(1f)
+              .heightIn(min = 48.dp)
               .clip(RoundedCornerShape(12.dp))
               .background(if (isSelected) activeBlue else Color.White)
               .border(
@@ -452,7 +499,8 @@ fun FingerControlRow(
               text = "$angle°",
               style = MaterialTheme.typography.bodyMedium,
               fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-              color = if (isSelected) Color.White else Color(0xFF64748B)
+              color = if (isSelected) Color.White else Color(0xFF64748B),
+              maxLines = 1
             )
           }
         }
@@ -470,7 +518,7 @@ fun PresetButton(
 ) {
   Card(
     modifier = modifier
-      .height(96.dp)
+      .heightIn(min = 96.dp)
       .clickable { onClick() },
     shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -479,8 +527,8 @@ fun PresetButton(
   ) {
     Column(
       modifier = Modifier
-        .fillMaxSize()
-        .padding(8.dp),
+        .fillMaxWidth()
+        .padding(horizontal = 6.dp, vertical = 14.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center
     ) {
@@ -497,7 +545,9 @@ fun PresetButton(
         fontWeight = FontWeight.Bold,
         color = Color(0xFF2F80ED),
         fontSize = 10.sp,
-        textAlign = TextAlign.Center
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
       )
     }
   }

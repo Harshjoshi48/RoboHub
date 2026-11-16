@@ -1,0 +1,369 @@
+================================================================================
+FIREBASE CLOUD FIRESTORE & ENVIRONMENT SETUP GUIDE (firebaseStep.txt)
+================================================================================
+
+1. WHY THE ENVIRONMENT SETUP WAS PROMPTING FOR 10 VARIABLES (RESOLVED)
+----------------------------------------------------------------------
+- Root Cause:
+  The AI Studio Secrets / Environment Setup UI scans `.env.example` and prompts
+  you for every **uncommented** `KEY=VALUE` line. Because all 10 variables were
+  previously uncommented in `.env.example`, the platform prompted you to fill
+  them in manually.
+- Fix Applied:
+  All lines in `.env.example` are now commented out (`# ...`). The Android app
+  reads its Firebase configuration directly from `app/google-services.json` and
+  `app/src/main/res/values/firebase_applet_config.xml` and does NOT require any
+  manual `.env` entries to compile or connect to Firebase Cloud Firestore.
+
+2. POSTGRESQL & `DATABASE_URL` REMOVAL VERIFICATION
+---------------------------------------------------
+- PostgreSQL, SQLite server databases, `psycopg2`, `SQLAlchemy`, and
+  `DATABASE_URL` have been completely removed from `backend/main.py`,
+  `backend/requirements.txt`, and the Android codebase.
+- `DATABASE_URL` is **NOT** referenced or required anywhere at build time or
+  runtime. All persistent server and client data uses **Firebase Cloud
+  Firestore**.
+
+3. VERIFICATION OF CURRENT DEPLOYMENT & INITIALIZATION STATE
+------------------------------------------------------------
+A) Android Application (`app/`):
+   - **Firestore Initialized**: YES.
+   - `app/google-services.json` is provisioned for Firebase project
+     `gen-lang-client-0929832946` and Android package
+     `com.aistudio.neuropulse.xrjklm`.
+   - `app/src/main/res/values/firebase_applet_config.xml` defines the named
+     Firestore database ID:
+     `ai-studio-android-neuropul-c40fab35-e98a-46c6-850b-96b0e10b6910`.
+   - `FirestoreDatabaseRepository(context)` initializes the SDK with:
+     `FirebaseFirestore.getInstance(context.applicationContext.getString(R.string.firestore_database_id))`.
+   - `firestore.rules` is compiled, tested (`10/10` unit tests + `4/4`
+     Robolectric tests), and deployed to Firebase.
+
+B) Python Backend (`backend/main.py`):
+   - **External Public Cloud Deployment**: NOT deployed to an external Cloud Run
+     service yet. (In the AI Studio Android build environment, only the Android
+     APK is built and streamed to the Android Emulator; port `8000` inside the
+     build container is reserved by the platform's `control-plane-agent`, so
+     `backend/main.py` defaults to `PORT=8090` when run locally.)
+   - **Direct Firestore SDK Operation in Android**: Because the Android app
+     (`AdminRepository.kt` and `FirestoreDatabaseRepository.kt`) connects
+     **directly to live Firebase Cloud Firestore** using the official Android
+     Firebase SDK (`com.google.firebase:firebase-firestore`), all User App and
+     Admin Panel features (including Super Admin System Configuration,
+     collection browsing, CRUD, RBAC, and audit logging) operate against live
+     Cloud Firestore without requiring an external Python HTTP server.
+   - **Google Service Account Credentials (`GOOGLE_APPLICATION_CREDENTIALS`)**:
+     Currently **NOT set** in the build container (`HAS_GOOGLE_APPLICATION_CREDENTIALS: False`).
+     When `backend/main.py` is run locally for tests (`backend/test_backend.py`),
+     it uses its built-in synchronized Firestore document store; when deployed
+     to an external server with `GOOGLE_APPLICATION_CREDENTIALS` set, it
+     initializes `firebase_admin` against project `gen-lang-client-0929832946`
+     and named database
+     `ai-studio-android-neuropul-c40fab35-e98a-46c6-850b-96b0e10b6910`.
+
+4. EXACT ANALYSIS OF ALL 10 ENVIRONMENT VARIABLES (WHICH ARE REQUIRED & HOW TO OBTAIN THEM)
+-------------------------------------------------------------------------------------------
+
+### Group A: Already Provisioned in Project Files (No Action Needed)
+
+1) `FIREBASE_PROJECT_ID`
+   - **Required?**: Already configured in code (`app/google-services.json` line 4
+     and `backend/main.py` line 43).
+   - **Actual Value in Project**: `gen-lang-client-0929832946`
+   - **How Obtained**: Provisioned automatically by Firebase setup in
+     `app/google-services.json` -> `project_info.project_id`.
+
+2) `FIRESTORE_DATABASE_ID`
+   - **Required?**: Already configured in code
+     (`app/src/main/res/values/firebase_applet_config.xml` line 3 and
+     `backend/main.py` line 44).
+   - **Actual Value in Project**:
+     `ai-studio-android-neuropul-c40fab35-e98a-46c6-850b-96b0e10b6910`
+   - **How Obtained**: Provisioned automatically in
+     `app/src/main/res/values/firebase_applet_config.xml` ->
+     `<string name="firestore_database_id">`.
+
+3) `FCM_PROJECT_ID`
+   - **Required?**: Already defaults to `FIREBASE_PROJECT_ID` (`backend/main.py`
+     line 1069).
+   - **Actual Value in Project**: `gen-lang-client-0929832946` (Sender ID /
+     Project Number in `app/google-services.json`: `743511634024`).
+   - **How Obtained**: Same as `project_info.project_id` in
+     `app/google-services.json` (or Firebase Console -> Project Settings ->
+     Cloud Messaging).
+
+### Group B: Safe Dynamic Runtime Settings (Managed in Firestore, Not Required in `.env`)
+
+4) `SESSION_TTL_MINUTES`
+   - **Required in `.env`?**: NO. Defaults to `30` (valid range: `5` to `1440`
+     minutes) and is stored in Firestore document
+     `system_config/runtime_settings` (`sessionTtlMinutes`).
+   - **How to Change**: Log in to the Android Admin Panel as Super Admin -> open
+     **System Configuration** -> **Session & Security Settings** -> update and
+     save.
+
+5) `RATE_LIMIT_PER_MINUTE`
+   - **Required in `.env`?**: NO. Defaults to `60` (valid range: `10` to `1000`
+     requests/minute) and is stored in Firestore document
+     `system_config/runtime_settings` (`rateLimitPerMinute`).
+   - **How to Change**: Log in to the Android Admin Panel as Super Admin -> open
+     **System Configuration** -> **API Rate Limits** -> update and save.
+
+   *(Note: `OTP_TTL_SECONDS` [default `60`], `OTP_MAX_SENDS` [default `3`], and
+   `OTP_WINDOW_SECONDS` [default `600`] also live in
+   `system_config/runtime_settings` and are editable in the System Configuration
+   screen.)*
+
+### Group C: Initial Bootstrap Settings (Optional Override; Already Seeded)
+
+6) `ADMIN_INITIAL_USERNAME`
+   - **Required in `.env`?**: NO. Defaults to `hj123` (`backend/main.py` line
+     342).
+   - **How to Obtain / Change**: Used only on initial seed. Manage admin
+     accounts at runtime via the Android Admin Panel (**Admins & RBAC** or
+     **System Configuration -> Admin Account Settings**).
+
+7) `ADMIN_INITIAL_PASSWORD_HASH`
+   - **Required in `.env`?**: NO. Used only on initial bootstrap seed.
+   - **How to Obtain / Rotate**: Do not set a static hash in `.env`. Instead,
+     rotate the Super Admin password at runtime using the **Rotate Password &
+     Update Profile** dialog inside **System Configuration -> Admin Account
+     Settings** (which hashes the new password with PBKDF2-HMAC-SHA256).
+
+### Group D: Standalone Python Backend Hosting Variables (Only Required If Deploying `backend/main.py` Externally)
+
+8) `ADMIN_BACKEND_BASE_URL`
+   - **Required?**:
+     * For Android Emulator + Local Backend or Direct Firestore SDK Mode: **NO**
+       (already defaults to `http://10.0.2.2:8000` in `AdminApiService.kt` line
+       429).
+     * For Physical Android Devices calling an externally deployed Python
+       backend: **YES**.
+   - **How to Obtain**: Deploy `backend/` to your hosting provider (e.g., Google
+     Cloud Run) and copy the resulting `https://<service-name>.run.app` URL.
+
+9) `ADMIN_HMAC_SECRET`
+   - **Required?**:
+     * In local development: Has a built-in fallback in `backend/main.py` line
+       42 so local execution works out of the box.
+     * In production Python backend deployment: **YES** (server-only secret).
+   - **How to Obtain**: Generate a cryptographically random 32-byte hex secret
+     in your terminal using:
+     `openssl rand -hex 32`
+     Store the generated value only in your cloud host's Secret Manager (never
+     in Firestore or git).
+
+10) `GOOGLE_APPLICATION_CREDENTIALS`
+    - **Required?**:
+      * For the Android App: **NO** (the Android app uses `google-services.json`
+        and Firebase Auth / Credential Manager, never a service-account key).
+      * For the Python Backend (`backend/main.py`) to write directly to live
+        Cloud Firestore via `firebase-admin`: **YES** (unless running on Google
+        Cloud Run with an attached IAM service account using Application Default
+        Credentials).
+    - **How to Obtain**:
+      1. Open the Firebase Console for project `gen-lang-client-0929832946`:
+         `https://console.firebase.google.com/project/gen-lang-client-0929832946/settings/serviceaccounts/adminsdk`
+      2. Click **Generate new private key** to download the service-account JSON
+         file.
+      3. Mount that file securely on your Python backend server (outside the git
+         repository) and set `GOOGLE_APPLICATION_CREDENTIALS` on the server to
+         the mounted file path. Never place this file inside the Android APK or
+         Firestore.
+
+5. UNRESOLVED CONFIGURATION TASKS (ONLY IF DEPLOYING PYTHON BACKEND TO PRODUCTION)
+----------------------------------------------------------------------------------
+1. [Optional - External Backend Hosting Only] Generate a Firebase Admin SDK
+   service-account key in the Firebase Console (`gen-lang-client-0929832946`)
+   and mount it as `GOOGLE_APPLICATION_CREDENTIALS` on your Python backend host
+   (or attach a Cloud Run service account with the `Cloud Datastore User` /
+   `Firebase Admin` IAM role).
+2. [Optional - External Backend Hosting Only] Generate a production
+   `ADMIN_HMAC_SECRET` (`openssl rand -hex 32`) and set it in your backend
+   host's Secret Manager.
+3. [Optional - External Backend Hosting Only] If you deploy `backend/main.py`
+   to an external HTTPS URL for physical devices, update `ADMIN_BACKEND_BASE_URL`
+   with that deployed URL.
+
+6. EMAIL + PASSWORD + 6-DIGIT EMAIL OTP LOGIN (USERS & SUPER ADMIN)
+-------------------------------------------------------------------
+A) Super Admin Account (`hj195345@gmail.com`):
+   - **Super Admin Email**: `hj195345@gmail.com` (`username: "hj123"`, `role: "SUPER_ADMIN"`).
+   - **No Hardcoded Plaintext Passwords**: Plaintext passwords and OTP secrets are
+     never stored in source code, Firestore documents, `.env.example`, or
+     `firebaseStep.txt`.
+   - **Setting or Updating Super Admin Password**:
+     1. On the Login screen, tap **Admin Console** -> **Set / Reset Admin Password?**
+        (or use **System Configuration -> Admin Account Settings -> Rotate Password**
+        when already signed in).
+     2. Enter `hj195345@gmail.com` and tap **Send 6-Digit OTP**.
+     3. Verify the 6-digit OTP within 60 seconds and enter your chosen password
+        (minimum 8 characters, at least 1 number and 1 special character). The
+        password is hashed with salted SHA-256 / PBKDF2-HMAC-SHA256.
+     4. Duplicate admin accounts are prevented; existing Super Admin records are
+        updated in-place.
+
+B) Login Flows (2-Step Email + Password + 6-Digit Email OTP):
+   - **Admin Login Flow**:
+     1. Switch to **Admin Console** on `LoginScreen`, enter `hj195345@gmail.com`
+        and password, and tap **VERIFY & SEND ADMIN OTP**.
+     2. Credentials and `SUPER_ADMIN` / `ADMIN` role eligibility are validated
+        first. Invalid credentials return a generic `"Invalid email or password."`
+        error.
+     3. A 6-digit verification OTP is issued to `hj195345@gmail.com` and the app
+        navigates to `OtpScreen`. Access to `AdminPanelScreen` is strictly
+        blocked until OTP verification succeeds (`session.otpVerified == true`).
+     4. After OTP verification, an HMAC-signed `SUPER_ADMIN` session is created
+        and `AdminPanelScreen` opens.
+   - **Normal User Login Flow**:
+     1. In **User Login** mode, enter user email and password and tap
+        **LOGIN WITH EMAIL OTP**.
+     2. After password verification, a 6-digit OTP is sent to the user's
+        registered email address.
+     3. Access to protected user screens (`WelcomeScreen` / `DashboardScreen`) is
+        granted only after the 6-digit OTP is verified.
+     4. **Continue with Google** (via Jetpack `CredentialManager` +
+        `FirebaseAuth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))`)
+        is preserved on both Login and Sign Up screens.
+   - **User Registration Flow**:
+     1. Self-registration (`SignUpScreen`) enforces duplicate email/username
+        checks and hard-locks `role = "USER"` so no client-side input can
+        self-assign `SUPER_ADMIN` or `ADMIN`.
+     2. After registration, a 6-digit `SIGNUP_VERIFY` OTP is issued to verify
+        email ownership before opening the user session.
+
+C) Email OTP Security & Rate-Limiting Settings:
+   - `OTP_TTL_SECONDS = 60`: Every 6-digit OTP expires strictly `60` seconds
+     after `issuedAtMillis`. The Android `OtpScreen` displays a live `00:60`
+     countdown synchronized with `expiresAtMillis`.
+   - `OTP_MAX_SENDS = 3` & `OTP_WINDOW_SECONDS = 600`: Maximum `3` OTP emails per
+     normalized email address within any rolling `10-minute` (`600` seconds)
+     window, enforced atomically via thread-safe locks (`_otp_lock` in Python and
+     `synchronized(otpMutex)` in Kotlin).
+   - **Single-Use & Invalidation on Resend**:
+     * Each OTP can be verified only once (`consumed = true` immediately upon use).
+     * Requesting or resending a new OTP immediately invalidates any previous
+       unconsumed OTP for that email (`invalidated = true`).
+     * Stored OTP records (`otp_challenges` collection) persist only salted
+       SHA-256 / HMAC-SHA256 digests (`otpHash` + `salt`), never plaintext OTPs.
+
+D) Firestore Schema & Security Rules (`firestore.rules`):
+   - `isVerifiedBootstrappedAdmin()` in `firestore.rules` authorizes
+     `hj195345@gmail.com` when `request.auth.token.email_verified == true`.
+   - `otp_challenges` is registered in `PROTECTED_SYSTEM_COLLECTIONS` so
+     server-side OTP hashes and rate-limit counters cannot be tampered with by
+     client CRUD operations.
+   - Normal users can read/write only their own profile (`users/{uid}`) with
+     `role == 'USER'` and `status == 'ACTIVE'`, and cannot escalate roles.
+
+E) Multi-Provider Email OTP Delivery Configuration (`backend/main.py`):
+   - **Root Cause & Fix of Exposed / Default OTP Issue**:
+     Previously, `backend/main.py` returned `"testOtpCode"` in JSON responses and
+     `AdminRepository.kt` populated `devPreviewCode` on `OtpChallengeState`, which
+     `OtpScreen` displayed on screen. That has been completely removed:
+     * Neither `backend/main.py` nor `AdminRepository.kt` ever generates a
+       default/hardcoded OTP (`"000000"`) or returns OTP values in API responses,
+       DTOs, console logs, or UI screens.
+     * Every OTP is generated via `secrets.randbelow(900000) + 100000` (Python)
+       or `java.security.SecureRandom` (Kotlin) and stored exclusively as a
+       salted SHA-256 / HMAC-SHA256 digest (`otpHash` + `salt`) with 60s expiry,
+       15s resend cooldown, max 5 verification attempts, and max 3 sends per 600s
+       rolling window.
+     * Upon successful password verification, the UI displays:
+       `"OTP sent to your registered email (<masked_email>)."`
+   - **Email Service Providers Supported (`_deliver_otp_email` in `backend/main.py`)**:
+     Configure any one of the following providers via server-side environment
+     variables (never hardcode secrets in source code or `firebaseStep.txt`):
+     1. **Resend API**:
+        * `RESEND_API_KEY` (server-side API key from Resend)
+        * `EMAIL_FROM` (verified sender address, e.g., `no-reply@yourdomain.com`)
+     2. **SendGrid API**:
+        * `SENDGRID_API_KEY` (server-side API key from SendGrid)
+        * `EMAIL_FROM` (verified sender address)
+     3. **SMTP (STARTTLS)**:
+        * `SMTP_HOST` (e.g., `smtp.gmail.com`)
+        * `SMTP_PORT` (default `587` with STARTTLS)
+        * `SMTP_USER` (sender email address)
+        * `SMTP_PASSWORD` (app password / SMTP secret from Secret Manager)
+        * `SMTP_FROM` (optional sender header)
+
+F) Google Login (OAuth / Credential Manager) & Account Linking:
+   - Android uses Jetpack `CredentialManager` (`GetSignInWithGoogleOption`) +
+     `FirebaseAuth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))`
+     and `AdminRepository.authenticateWithGoogle(...)` (mirrored on the backend
+     by `POST /api/v1/auth/google`).
+   - Accounts are matched and linked by normalized verified email:
+     * Existing `"EMAIL"` accounts are linked to `"EMAIL,GOOGLE"` without creating
+       duplicate user records or escalating roles.
+     * New Google users are created with `role = "USER"`, `status = "ACTIVE"`, and
+       `authProvider = "GOOGLE"`.
+     * `BLOCKED`, `SUSPENDED`, `INACTIVE`, or `DELETED` accounts are rejected.
+     * Google-verified logins establish an authenticated session directly without
+       an unnecessary second email OTP challenge.
+
+G) Admin Panel User Management, RBAC & Last Super Admin Protection:
+   - **Dashboard & User Management Metrics**:
+     * Total registered users
+     * Total users who have logged in (`lastLoginAt != null || loginCount > 0`)
+     * Currently active users (active sessions + `ACTIVE` accounts)
+     * Blocked / Deactivated accounts
+   - **User Table & Controls (`AdminUsersTab`)**:
+     * Displays full name, username, email, account status (`ACTIVE`, `BLOCKED`,
+       `SUSPENDED`, `INACTIVE`), authentication provider (`EMAIL`, `GOOGLE`,
+       `EMAIL,GOOGLE`), assigned role, registration date, last-login timestamp,
+       and login count.
+     * Supports search, status/role/provider filters (`ALL`, `ADMINS`, `ACTIVE`,
+       `SUSPENDED`, `BLOCKED`, `INACTIVE`, `GOOGLE`), sorting (`NEWEST`,
+       `LAST_LOGIN`, `MOST_LOGINS`, `NAME`), and pagination (`Prev` / `Next`).
+     * Supports **Block / Unblock**, **Activate / Deactivate**, **Role Assignment**,
+       and **Individual Permission Overrides (`customPermissions`)**.
+   - **RBAC Roles & Last Super Admin Safeguard**:
+     * Supported roles: `SUPER_ADMIN`, `ADMIN`, `DATA_MANAGER`, `EDITOR`,
+       `SUPPORT_AGENT`, `ANALYST`, `VIEWER`, `USER`, `BLOCKED`.
+     * Blocking, suspending, deactivating, demoting, or deleting the last active
+       `SUPER_ADMIN` (`hj195345@gmail.com`) is strictly blocked in both
+       `backend/main.py` and `AdminRepository.kt`.
+
+H) UI Navbar Spacing Root Cause & Fix:
+   - **Root Cause**: `MainActivity.kt` wraps `AppNavigation(modifier = Modifier.padding(innerPadding))`
+     inside a root `Scaffold`, which already applies status-bar top padding and
+     navigation-bar bottom padding. Child screens were applying `.systemBarsPadding()`,
+     `.statusBarsPadding()`, or nested `Scaffold` / `TopAppBar` default `windowInsets`
+     a second time, creating extra blank space above the top navbar.
+   - **Fix Applied**: Set `contentWindowInsets = WindowInsets(0, 0, 0, 0)` and
+     `windowInsets = WindowInsets(0, 0, 0, 0)` on nested `Scaffold`s and
+     `TopAppBar`s, removed redundant `.systemBarsPadding()` / `.statusBarsPadding()`
+     on child screens, and reduced oversized top `Spacer`s so the navbar aligns
+     cleanly with the top of every screen.
+
+I) Files Modified & Tests Performed:
+   - **Files Modified**:
+     * `/firestore.rules` & `/firestore.test.js`
+     * `/backend/main.py` & `/backend/test_backend.py`
+     * `/app/src/main/java/com/example/AppDatabase.kt`
+     * `/app/src/main/java/com/example/FirestoreDatabaseRepository.kt`
+     * `/app/src/main/java/com/example/AdminApiService.kt`
+     * `/app/src/main/java/com/example/AdminRepository.kt`
+     * `/app/src/main/java/com/example/AdminViewModel.kt`
+     * `/app/src/main/java/com/example/AdminPanelScreen.kt`
+     * `/app/src/main/java/com/example/MainActivity.kt`
+     * `/app/src/main/java/com/example/ResetPasswordScreen.kt`
+     * `/app/src/main/java/com/example/DashboardScreen.kt`
+     * `/app/src/main/java/com/example/ProfileScreen.kt`
+     * `/app/src/main/java/com/example/HandControlScreen.kt`
+     * `/app/src/main/java/com/example/NotificationsScreen.kt`
+     * `/app/src/main/java/com/example/SettingsScreen.kt`
+     * `/app/src/main/java/com/example/ReportsScreen.kt`
+     * `/app/src/main/java/com/example/AIAssistantScreen.kt`
+     * `/app/src/main/java/com/example/GestureStudioScreen.kt`
+     * `/app/src/main/java/com/example/PermissionsScreen.kt`
+     * `/app/src/main/java/com/example/ConnectDevicesScreen.kt`
+     * `/app/src/main/java/com/example/CalibrationScreen.kt`
+     * `/app/src/main/java/com/example/RoboticHandTestScreen.kt`
+     * `/app/src/main/java/com/example/SetupCompleteScreen.kt`
+     * `/app/src/test/java/com/example/FirestoreDatabaseRepositoryRuleTest.kt`
+     * `/firebaseStep.txt`
+   - **Tests Executed & Verified**:
+     * Python Backend OTP, Google OAuth & RBAC Unit Tests (`python3 -m unittest -v backend/test_backend.py`): **16/16 passed**.
+     * Android Kotlin Compilation (`compile_applet`) & Robolectric Tests (`gradle :app:testDebugUnitTest`): **Verified passing**.
+================================================================================

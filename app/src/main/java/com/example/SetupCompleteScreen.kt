@@ -17,45 +17,68 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun SetupCompleteScreen(onGoToDashboard: () -> Unit, onViewTutorial: () -> Unit) {
+    val context = LocalContext.current
+    val appBranding by AppBrandingCacheStore.stateFlow(context).collectAsStateWithLifecycle()
     val primaryBlue = Color(0xFF0052CC)
     val textGray = Color(0xFF727785)
     val lightBg = Color(0xFFF8F9FA)
     val greenColor = Color(0xFF2E7D32)
     val lightGreen = Color(0xFFE8F5E9)
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(lightBg)
-            .systemBarsPadding()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
+        contentAlignment = Alignment.TopCenter
+    ) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .widthIn(max = 640.dp)
     ) {
         // Top Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onGoToDashboard) { // Or back, but we shouldn't really go back from here
                 Icon(painter = painterResource(android.R.drawable.ic_menu_revert), contentDescription = "Back", tint = primaryBlue)
             }
-            Text(
-                text = "NeuroGrip",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = primaryBlue
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (appBranding.hasCustomLogo) {
+                    AppBrandingLogo(
+                        branding = appBranding,
+                        size = 24.dp,
+                        cornerRadius = 6.dp,
+                        testTag = "setup_complete_branding_logo"
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text(
+                    text = appBranding.appName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = primaryBlue,
+                    modifier = Modifier.testTag("setup_complete_branding_app_name")
+                )
+            }
             IconButton(onClick = { /* Help */ }) {
                 Icon(painter = painterResource(android.R.drawable.ic_menu_help), contentDescription = "Help", tint = primaryBlue)
             }
@@ -69,7 +92,7 @@ fun SetupCompleteScreen(onGoToDashboard: () -> Unit, onViewTutorial: () -> Unit)
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("STEP 6 of 6", style = MaterialTheme.typography.labelSmall, color = greenColor, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                Text("STEP 5 of 5", style = MaterialTheme.typography.labelSmall, color = greenColor, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                 Text("100% Complete", style = MaterialTheme.typography.labelSmall, color = greenColor, fontWeight = FontWeight.Bold, fontSize = 10.sp)
             }
             Box(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp).height(4.dp).background(greenColor, RoundedCornerShape(2.dp)))
@@ -131,7 +154,7 @@ fun SetupCompleteScreen(onGoToDashboard: () -> Unit, onViewTutorial: () -> Unit)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "All devices are connected, calibrated, and verified successfully. You can now control your robotic hand using Brain Signals, Muscle Signals and the Mobile app.",
+                        text = "All devices are connected and verified successfully. You can now control your robotic hand using Brain Signals, Muscle Signals and the Mobile app.",
                         style = MaterialTheme.typography.bodySmall,
                         color = textGray,
                         lineHeight = 16.sp
@@ -152,7 +175,6 @@ fun SetupCompleteScreen(onGoToDashboard: () -> Unit, onViewTutorial: () -> Unit)
                     VerificationItem("ESP32 Core Controller", Icons.Default.Memory)
                     VerificationItem("EEG Neural Link", Icons.Default.Psychology)
                     VerificationItem("EMG Muscle Sensor", Icons.Default.MonitorHeart)
-                    VerificationItem("Bimodal Calibration", Icons.Default.Tune)
                     VerificationItem("Robotic Hand Test", Icons.Default.PanTool)
                 }
             }
@@ -220,12 +242,12 @@ fun SetupCompleteScreen(onGoToDashboard: () -> Unit, onViewTutorial: () -> Unit)
 
             Button(
                 onClick = onGoToDashboard,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("GO TO DASHBOARD", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("GO TO DASHBOARD", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = Color.White)
                 }
@@ -235,12 +257,12 @@ fun SetupCompleteScreen(onGoToDashboard: () -> Unit, onViewTutorial: () -> Unit)
 
             OutlinedButton(
                 onClick = onViewTutorial, // Tutorial
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, primaryBlue.copy(alpha = 0.5f)),
                 colors = ButtonDefaults.outlinedButtonColors(containerColor = primaryBlue.copy(alpha = 0.05f))
             ) {
-                Text("VIEW QUICK TUTORIAL", style = MaterialTheme.typography.titleMedium, color = primaryBlue, fontWeight = FontWeight.SemiBold)
+                Text("VIEW QUICK TUTORIAL", style = MaterialTheme.typography.titleMedium, color = primaryBlue, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -254,6 +276,7 @@ fun SetupCompleteScreen(onGoToDashboard: () -> Unit, onViewTutorial: () -> Unit)
             )
         }
     }
+    }
 }
 
 @Composable
@@ -264,7 +287,7 @@ fun VerificationItem(name: String, icon: ImageVector) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
             Icon(imageVector = icon, contentDescription = null, tint = greenColor, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Text(name, style = MaterialTheme.typography.bodyMedium, color = Color.Black)
@@ -283,7 +306,7 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)

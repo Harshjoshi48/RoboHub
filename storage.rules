@@ -1,0 +1,69 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedAdminEmail() {
+      return isSignedIn() &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email in ['hj195344@gmail.com', 'hj195345@gmail.com'];
+    }
+
+    function isValidAvatarFileName(fileName) {
+      return fileName is string &&
+             fileName.size() >= 6 &&
+             fileName.size() <= 80 &&
+             fileName.matches('^avatar_[0-9]+\\.(jpg|jpeg|png|webp)$');
+    }
+
+    function isValidAvatarUpload() {
+      return request.resource != null &&
+             request.resource.size > 0 &&
+             request.resource.size <= 5 * 1024 * 1024 &&
+             request.resource.contentType != null &&
+             request.resource.contentType.matches('^image/(jpeg|jpg|png|webp)$');
+    }
+
+    // Default deny catch-all
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    function isValidBrandingLogoFileName(fileName) {
+      return fileName is string &&
+             fileName.size() >= 8 &&
+             fileName.size() <= 96 &&
+             fileName.matches('^logo_v[0-9]+_[0-9]+\\.(jpg|jpeg|png|webp)$');
+    }
+
+    function isValidBrandingLogoUpload() {
+      return request.resource != null &&
+             request.resource.size > 0 &&
+             request.resource.size <= 5 * 1024 * 1024 &&
+             request.resource.contentType != null &&
+             request.resource.contentType.matches('^image/(jpeg|jpg|png|webp)$');
+    }
+
+    // Profile avatars: strictly scoped per userId, max 5 MB, JPG/JPEG/PNG/WebP only
+    match /profile_photos/{userId}/{fileName} {
+      allow get, list: if isSignedIn() && (request.auth.uid == userId || isVerifiedAdminEmail());
+      allow create, update: if isSignedIn() &&
+                               request.auth.uid == userId &&
+                               isValidAvatarFileName(fileName) &&
+                               isValidAvatarUpload();
+      allow delete: if isSignedIn() && (request.auth.uid == userId || isVerifiedAdminEmail());
+    }
+
+    // Application branding logos: signed-in read, Super Admin upload/replace/delete
+    match /app_branding/{fileName} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isVerifiedAdminEmail() &&
+                               isValidBrandingLogoFileName(fileName) &&
+                               isValidBrandingLogoUpload();
+      allow delete: if isVerifiedAdminEmail();
+    }
+  }
+}

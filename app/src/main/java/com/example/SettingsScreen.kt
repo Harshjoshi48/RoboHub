@@ -26,9 +26,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -38,9 +42,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun SettingsScreen(
     viewModel: DashboardViewModel = viewModel(),
+    adminViewModel: AdminViewModel = viewModel(),
     onBack: () -> Unit,
     onLogout: () -> Unit,
-    onNavigateToPermissions: () -> Unit = {}
+    onNavigateToPermissions: () -> Unit = {},
+    onNavigateToConnectDevices: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val sharedPrefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
@@ -68,6 +74,7 @@ fun SettingsScreen(
     var showPasswordDialog by remember { mutableStateOf(false) }
     
     var showSecurityDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -80,12 +87,19 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { 
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("Settings", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkText)
-                    }
+            CenterAlignedTopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                title = {
+                    Text(
+                        "Settings",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = darkText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -97,11 +111,12 @@ fun SettingsScreen(
                         Icon(Icons.Default.Search, contentDescription = "Search", tint = primaryBlue)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = lightBg)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = lightBg)
             )
         },
         bottomBar = {
             NavigationBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 containerColor = Color.White,
                 tonalElevation = 16.dp
             ) {
@@ -153,11 +168,17 @@ fun SettingsScreen(
         },
         containerColor = lightBg
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.TopCenter
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 640.dp)
                 .padding(horizontal = 20.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -167,24 +188,15 @@ fun SettingsScreen(
                 SettingsRow(
                     icon = Icons.Outlined.Security,
                     title = "Device Permissions & Setup",
-                    trailingText = "Step 2 of 4",
+                    trailingText = "Step 2 of 5",
                     onClick = onNavigateToPermissions
                 )
                 HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 56.dp))
                 SettingsRow(
                     icon = Icons.Outlined.Devices,
-                    title = "Connected Devices",
-                    onClick = {
-                        if (isConnected) {
-                            showConnectDialog = true
-                        } else {
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                                showConnectDialog = true
-                            } else {
-                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                            }
-                        }
-                    }
+                    title = "Connected Devices (ESP32 BLE)",
+                    trailingText = if (isConnected) "CONNECTED" else "DISCONNECTED",
+                    onClick = onNavigateToConnectDevices
                 )
                 HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 56.dp))
                 SettingsRow(
@@ -244,7 +256,8 @@ fun SettingsScreen(
                 onClick = onLogout,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .heightIn(min = 56.dp)
+                    .testTag("settings_logout_button"),
                 shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Color(0xFFB91C1C)),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -252,10 +265,35 @@ fun SettingsScreen(
                     contentColor = Color(0xFFB91C1C)
                 )
             ) {
-                Text("Logout", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("Logout", fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center)
             }
-            
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Delete Permanent Account Button
+            Button(
+                onClick = { showDeleteAccountDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .testTag("settings_delete_permanent_account_button"),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFB91C1C),
+                    contentColor = Color.White
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.DeleteForever,
+                    contentDescription = "Delete Permanent Account",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Delete Permanent Account", fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center)
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
+        }
         }
 
         // Dialogs
@@ -380,12 +418,13 @@ fun SettingsScreen(
                 onDismissRequest = { showPasswordDialog = false },
                 title = { Text("Change Password") },
                 text = {
-                    Column {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         OutlinedTextField(
                             value = oldPass,
                             onValueChange = { oldPass = it },
                             label = { Text("Current Password") },
                             visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                         )
                         OutlinedTextField(
@@ -393,6 +432,7 @@ fun SettingsScreen(
                             onValueChange = { newPass = it },
                             label = { Text("New Password") },
                             visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                         )
                         OutlinedTextField(
@@ -400,6 +440,7 @@ fun SettingsScreen(
                             onValueChange = { confirmPass = it },
                             label = { Text("Confirm Password") },
                             visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -436,6 +477,61 @@ fun SettingsScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showSecurityDialog = false }) { Text("Close") }
+                }
+            )
+        }
+
+        if (showDeleteAccountDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteAccountDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Outlined.DeleteForever,
+                        contentDescription = null,
+                        tint = Color(0xFFB91C1C)
+                    )
+                },
+                title = {
+                    Text("Delete Permanent Account", fontWeight = FontWeight.Bold, color = Color(0xFF991B1B))
+                },
+                text = {
+                    Text(
+                        "Are you sure you want to permanently delete your account? All your profile data, saved settings, and account access will be permanently removed. This action cannot be undone.",
+                        fontSize = 14.sp,
+                        color = darkText
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteAccountDialog = false
+                            val currentUsername = adminViewModel.currentUserProfile.value?.username
+                                ?: adminViewModel.currentSession.value?.username
+                                ?: "User"
+                            adminViewModel.deleteOwnAccountPermanently(
+                                usernameOrIdentifier = currentUsername,
+                                onSuccess = { msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    onLogout()
+                                },
+                                onError = { err ->
+                                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFB91C1C),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier.testTag("settings_confirm_delete_permanent_account_button")
+                    ) {
+                        Text("Delete Permanently", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteAccountDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
             )
         }
@@ -481,6 +577,7 @@ fun SettingsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 56.dp)
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -499,16 +596,16 @@ fun SettingsRow(
                 modifier = Modifier.size(20.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.width(16.dp))
-        
+
         Text(
             text = title,
             fontSize = 15.sp,
             color = Color(0xFF1E293B),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).padding(end = 8.dp)
         )
-        
+
         if (hasRedDot) {
             Box(
                 modifier = Modifier
@@ -517,16 +614,19 @@ fun SettingsRow(
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
-        
+
         if (trailingText != null) {
             Text(
                 text = trailingText,
-                fontSize = 13.sp,
-                color = Color(0xFF64748B)
+                fontSize = 12.sp,
+                color = Color(0xFF64748B),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 120.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
         }
-        
+
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,

@@ -32,16 +32,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
   val context = LocalContext.current
+  val appBranding by AppBrandingCacheStore.stateFlow(context).collectAsStateWithLifecycle()
   val primaryBlue = Color(0xFF2F80ED)
   val textGray = Color(0xFF727785)
   val lightBg = Color(0xFFF8F9FA)
@@ -90,20 +93,33 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 
   val cameraPermission = arrayOf(Manifest.permission.CAMERA)
 
-  val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-    arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-  } else {
-    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-  }
-
   val launcher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestMultiplePermissions()
-  ) { permissions ->
+  ) { _ ->
     hasBluetooth = checkBluetoothPermission(context)
     hasLocation = checkLocationPermission(context)
     hasNotification = checkNotificationPermission(context)
     hasCamera = checkCameraPermission(context)
     hasStorage = checkStoragePermission(context)
+  }
+
+  val safTreeLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.OpenDocumentTree()
+  ) { uri ->
+    if (uri != null) {
+      runCatching {
+        context.contentResolver.takePersistableUriPermission(
+          uri,
+          Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+      }
+      setStoragePermissionGranted(context, true, uri.toString())
+    } else {
+      // Ensure app-scoped report & therapy export directory is ready on Android 10-14+
+      setStoragePermissionGranted(context, true)
+    }
+    hasStorage = checkStoragePermission(context)
+    Toast.makeText(context, "Storage access enabled for PDF & CSV report exports.", Toast.LENGTH_SHORT).show()
   }
 
   if (showIncompleteDialog) {
@@ -119,19 +135,24 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
     )
   }
 
-  Column(
+  Box(
     modifier = Modifier
       .fillMaxSize()
       .background(Color.White)
-      .systemBarsPadding()
+      .verticalScroll(rememberScrollState()),
+    contentAlignment = Alignment.TopCenter
+  ) {
+  Column(
+    modifier = Modifier
+      .fillMaxWidth()
+      .widthIn(max = 560.dp)
       .padding(horizontal = 24.dp)
-      .verticalScroll(rememberScrollState())
   ) {
     // Top Bar
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(top = 16.dp, bottom = 24.dp),
+        .padding(top = 8.dp, bottom = 12.dp),
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically
     ) {
@@ -139,12 +160,24 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = primaryBlue)
       }
 
-      Text(
-        text = "NeuroGrip",
-        style = MaterialTheme.typography.titleLarge,
-        color = Color.LightGray,
-        fontWeight = FontWeight.Bold
-      )
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        if (appBranding.hasCustomLogo) {
+          AppBrandingLogo(
+            branding = appBranding,
+            size = 24.dp,
+            cornerRadius = 6.dp,
+            testTag = "permissions_branding_logo"
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+        }
+        Text(
+          text = appBranding.appName,
+          style = MaterialTheme.typography.titleLarge,
+          color = Color.LightGray,
+          fontWeight = FontWeight.Bold,
+          modifier = Modifier.testTag("permissions_branding_app_name")
+        )
+      }
 
       IconButton(onClick = { Toast.makeText(context, "Help & Instructions", Toast.LENGTH_SHORT).show() }) {
         Icon(
@@ -162,11 +195,11 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       verticalAlignment = Alignment.CenterVertically
     ) {
       Column {
-        Text("STEP 2 OF 4", style = MaterialTheme.typography.labelSmall, color = primaryBlue, fontWeight = FontWeight.Bold)
+        Text("STEP 2 OF 5", style = MaterialTheme.typography.labelSmall, color = primaryBlue, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(4.dp))
-        Box(modifier = Modifier.height(4.dp).width(60.dp).background(primaryBlue, RoundedCornerShape(2.dp)))
+        Box(modifier = Modifier.height(4.dp).width(80.dp).background(primaryBlue, RoundedCornerShape(2.dp)))
       }
-      Text("33% COMPLETE", style = MaterialTheme.typography.labelSmall, color = primaryBlue, fontWeight = FontWeight.Bold)
+      Text("40% COMPLETE", style = MaterialTheme.typography.labelSmall, color = primaryBlue, fontWeight = FontWeight.Bold)
     }
 
     Spacer(modifier = Modifier.height(24.dp))
@@ -283,7 +316,19 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       desc = "Save reports, therapy history and PDF exports.",
       isRequired = false,
       isGranted = hasStorage,
-      onToggle = { handleToggle(it, hasStorage, storagePermissions) }
+      onToggle = { requestedState ->
+        if (requestedState) {
+          setStoragePermissionGranted(context, true)
+          hasStorage = true
+          runCatching { safTreeLauncher.launch(null) }.onFailure {
+            Toast.makeText(context, "Storage enabled for PDF & CSV report exports.", Toast.LENGTH_SHORT).show()
+          }
+        } else {
+          setStoragePermissionGranted(context, false)
+          hasStorage = false
+          Toast.makeText(context, "Storage export preference disabled.", Toast.LENGTH_SHORT).show()
+        }
+      }
     )
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -337,15 +382,14 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
           Icon(Icons.Outlined.Shield, contentDescription = null, tint = Color.White)
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
           Text("Your Medical Data is Protected", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.Black)
-          Row(modifier = Modifier.padding(top = 4.dp)) {
-            Column {
+          Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
               Text("✓ End-to-End Encryption", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
               Text("✓ Secure Device Pairing", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
               Text("✓ HIPAA Compliant", style = MaterialTheme.typography.bodySmall, color = textGray, fontSize = 10.sp)
             }
           }
@@ -369,7 +413,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
       },
       modifier = Modifier
         .fillMaxWidth()
-        .height(52.dp),
+        .heightIn(min = 52.dp),
       shape = RoundedCornerShape(26.dp),
       colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
     ) {
@@ -384,12 +428,15 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 
     TextButton(
       onClick = onContinue,
-      modifier = Modifier.fillMaxWidth()
+      modifier = Modifier
+        .fillMaxWidth()
+        .heightIn(min = 48.dp)
     ) {
       Text("Configure Later", color = textGray)
     }
 
     Spacer(modifier = Modifier.height(32.dp))
+  }
   }
 }
 
@@ -469,13 +516,25 @@ fun checkCameraPermission(context: android.content.Context): Boolean {
   return ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 }
 
-fun checkStoragePermission(context: android.content.Context): Boolean {
-  val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-    arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-  } else {
-    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+fun setStoragePermissionGranted(
+  context: android.content.Context,
+  granted: Boolean,
+  safTreeUri: String = ""
+) {
+  runCatching {
+    java.io.File(context.filesDir, "reports").mkdirs()
   }
-  return permissions.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+  val prefs = context.getSharedPreferences("neurogrip_permissions_prefs", android.content.Context.MODE_PRIVATE)
+  prefs.edit()
+    .putBoolean("storage_saf_granted", granted)
+    .putString("storage_saf_uri", safTreeUri)
+    .apply()
+}
+
+fun checkStoragePermission(context: android.content.Context): Boolean {
+  val prefs = context.getSharedPreferences("neurogrip_permissions_prefs", android.content.Context.MODE_PRIVATE)
+  if (prefs.getBoolean("storage_saf_granted", false)) return true
+  return context.contentResolver.persistedUriPermissions.any { it.isWritePermission }
 }
 
 fun checkInternetConnection(context: android.content.Context): Boolean {

@@ -1,0 +1,380 @@
+{
+  "entities": {
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Trusted administrator membership record for RBAC verification",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID of the administrator" },
+        "email": { "type": "string", "format": "email", "description": "Verified administrator email" },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "ADMIN", "EDITOR", "SUPPORT_AGENT", "ANALYST"] },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Application user or staff account document",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID or unique user identifier" },
+        "username": { "type": "string", "description": "Unique handle" },
+        "name": { "type": "string", "description": "Full display name" },
+        "email": { "type": "string", "format": "email" },
+        "mobile": { "type": "string" },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "ADMIN", "EDITOR", "SUPPORT_AGENT", "ANALYST", "USER"] },
+        "status": { "type": "string", "enum": ["ACTIVE", "SUSPENDED", "DELETED"] },
+        "subscriptionPlan": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "notes": { "type": "string" },
+        "photoUrl": { "type": "string", "description": "HTTPS Firebase Storage download URL for the user's profile avatar" },
+        "photoUpdatedAt": { "type": "integer", "description": "Epoch millis when the profile avatar was last updated or removed" },
+        "twoFactorEnabled": { "type": "boolean" },
+        "loginCount": { "type": "integer" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "name", "email", "role", "status", "createdAt"]
+    },
+    "NotificationBroadcast": {
+      "title": "NotificationBroadcast",
+      "description": "Push notification and FCM broadcast record",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "targetAudience": { "type": "string", "enum": ["ALL_USERS", "ADMINS", "PRO_USERS", "SPECIFIC_USER"] },
+        "targetUsername": { "type": "string" },
+        "category": { "type": "string" },
+        "deliveryStatus": { "type": "string", "enum": ["DELIVERED", "SCHEDULED", "TEST_SENT", "FAILED"] },
+        "sentBy": { "type": "string" },
+        "recipientCount": { "type": "integer" },
+        "isScheduled": { "type": "boolean" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "targetAudience", "sentBy", "createdAt"]
+    },
+    "RemoteConfigDoc": {
+      "title": "RemoteConfigDoc",
+      "description": "Live remote configuration and feature flags for the Android app",
+      "type": "object",
+      "properties": {
+        "configKey": { "type": "string" },
+        "maintenanceMode": { "type": "boolean" },
+        "maintenanceMessage": { "type": "string" },
+        "minSupportedVersionCode": { "type": "integer" },
+        "minSupportedVersionName": { "type": "string" },
+        "recommendedVersionName": { "type": "string" },
+        "forceUpdate": { "type": "boolean" },
+        "featureAiAssistant": { "type": "boolean" },
+        "featureHandControl": { "type": "boolean" },
+        "featureGestureStudio": { "type": "boolean" },
+        "featureTelemetryStream": { "type": "boolean" },
+        "featureOtaUpdates": { "type": "boolean" },
+        "primaryThemeHex": { "type": "string" },
+        "maxGripForceLimitN": { "type": "number" },
+        "defaultEsp32Ip": { "type": "string" },
+        "configVersion": { "type": "integer" },
+        "updatedBy": { "type": "string" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "configKey",
+        "maintenanceMode",
+        "maintenanceMessage",
+        "minSupportedVersionCode",
+        "minSupportedVersionName",
+        "recommendedVersionName",
+        "configVersion",
+        "updatedBy",
+        "createdAt"
+      ]
+    },
+    "ConfigHistoryDoc": {
+      "title": "ConfigHistoryDoc",
+      "description": "Versioned snapshot of remote configuration changes",
+      "type": "object",
+      "properties": {
+        "configVersion": { "type": "integer" },
+        "summary": { "type": "string" },
+        "publishedBy": { "type": "string" },
+        "snapshotMap": { "type": "object" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["configVersion", "summary", "publishedBy", "createdAt"]
+    },
+    "BannerContentDoc": {
+      "title": "BannerContentDoc",
+      "description": "In-app dynamic banner, clinical tip, promotion, CTA, scheduling, targeting, and metrics record",
+      "type": "object",
+      "properties": {
+        "bannerKey": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "description": { "type": "string" },
+        "bannerType": { "type": "string", "enum": ["ANNOUNCEMENT", "CLINICAL_TIP", "PROMOTION", "WARNING"] },
+        "iconKey": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "ctaEnabled": { "type": "boolean" },
+        "ctaText": { "type": "string" },
+        "ctaActionType": { "type": "string", "enum": ["NONE", "OPEN_URL", "OPEN_SCREEN", "OPEN_CATEGORY", "OPEN_PRODUCT", "SHOW_POPUP", "CALL", "WHATSAPP"] },
+        "ctaTargetValue": { "type": "string" },
+        "deepLinkRoute": { "type": "string" },
+        "targetScreen": { "type": "string" },
+        "backgroundHex": { "type": "string" },
+        "textHex": { "type": "string" },
+        "buttonHex": { "type": "string" },
+        "buttonTextHex": { "type": "string" },
+        "borderHex": { "type": "string" },
+        "priority": { "type": "integer" },
+        "displayPosition": { "type": "string", "enum": ["HOME_TOP", "HOME_SLIDER", "HOME_MIDDLE", "HOME_BOTTOM", "TOP_STICKY", "BOTTOM_STICKY", "FLOATING", "POPUP", "CATEGORY", "PRODUCT_DETAILS"] },
+        "isActive": { "type": "boolean" },
+        "isPublic": { "type": "boolean" },
+        "isPublished": { "type": "boolean" },
+        "isDraft": { "type": "boolean" },
+        "clinicalReviewStatus": { "type": "string", "enum": ["NOT_REQUIRED", "PENDING_REVIEW", "APPROVED", "REJECTED"] },
+        "clinicalApproved": { "type": "boolean" },
+        "reviewedBy": { "type": "string" },
+        "startAtMillis": { "type": "integer" },
+        "endAtMillis": { "type": "integer" },
+        "timezoneId": { "type": "string" },
+        "targetAudience": { "type": "string", "enum": ["PUBLIC_ALL", "SPECIFIC_USERS", "USER_ROLES", "NEW_USERS", "EXISTING_USERS"] },
+        "targetValuesCsv": { "type": "string" },
+        "dismissible": { "type": "boolean" },
+        "reShowAfterDismissHours": { "type": "integer" },
+        "impressionsCount": { "type": "integer" },
+        "uniqueViewsCount": { "type": "integer" },
+        "clicksCount": { "type": "integer" },
+        "createdBy": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "subtitle", "isActive", "createdAt"]
+    },
+    "BannerAnalyticsEventDoc": {
+      "title": "BannerAnalyticsEventDoc",
+      "description": "Append-only impression, click, and dismissal analytics event for banners",
+      "type": "object",
+      "properties": {
+        "bannerId": { "type": "integer" },
+        "bannerKey": { "type": "string" },
+        "eventType": { "type": "string", "enum": ["IMPRESSION", "CLICK", "DISMISS"] },
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "dateKey": { "type": "string" },
+        "screenSlot": { "type": "string" },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["bannerId", "bannerKey", "eventType", "userId", "username", "dateKey", "createdAt"]
+    },
+    "SupportTicketDoc": {
+      "title": "SupportTicketDoc",
+      "description": "User feedback and clinical hardware support ticket",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "status": { "type": "string", "enum": ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"] },
+        "adminReply": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "userEmail", "subject", "message", "status", "createdAt"]
+    },
+    "AuditLogDoc": {
+      "title": "AuditLogDoc",
+      "description": "Append-only security and database administration audit log",
+      "type": "object",
+      "properties": {
+        "actorUid": { "type": "string" },
+        "actorUsername": { "type": "string" },
+        "actorRole": { "type": "string" },
+        "actionType": { "type": "string" },
+        "targetEntity": { "type": "string" },
+        "details": { "type": "string" },
+        "severity": { "type": "string", "enum": ["INFO", "WARNING", "CRITICAL"] },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorUid", "actorUsername", "actorRole", "actionType", "targetEntity", "details", "severity", "createdAt"]
+    },
+    "SubscriptionDoc": {
+      "title": "SubscriptionDoc",
+      "description": "User subscription and billing status document",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "planName": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "PAST_DUE", "CANCELED", "TRIAL"] },
+        "amountUsd": { "type": "number" },
+        "billingCycle": { "type": "string" },
+        "paymentMethodLast4": { "type": "string" },
+        "autoRenew": { "type": "boolean" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "planName", "status", "amountUsd", "createdAt"]
+    },
+    "BackupDoc": {
+      "title": "BackupDoc",
+      "description": "Authorized Firestore collection export/backup snapshot",
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "collectionName": { "type": "string" },
+        "recordCount": { "type": "integer" },
+        "sizeBytes": { "type": "integer" },
+        "recordsList": { "type": "array" },
+        "metadataMap": { "type": "object" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["label", "createdBy", "collectionName", "recordCount", "sizeBytes", "createdAt"]
+    },
+    "SduiConfigDoc": {
+      "title": "SduiConfigDoc",
+      "description": "Server-Driven UI layout, theme, section ordering, and media configuration",
+      "type": "object",
+      "properties": {
+        "configKey": { "type": "string" },
+        "schemaVersion": { "type": "integer" },
+        "configVersion": { "type": "integer" },
+        "updatedBy": { "type": "string" },
+        "changeSummary": { "type": "string" },
+        "payloadJson": { "type": "string" },
+        "contentSha256": { "type": "string" },
+        "themePrimaryHex": { "type": "string" },
+        "themeBackgroundHex": { "type": "string" },
+        "heroTitle": { "type": "string" },
+        "heroImageUrl": { "type": "string" },
+        "promoEnabled": { "type": "boolean" },
+        "sectionsOrder": { "type": "array" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["configKey", "schemaVersion", "configVersion", "updatedBy", "payloadJson", "contentSha256", "createdAt"]
+    },
+    "SduiHistoryDoc": {
+      "title": "SduiHistoryDoc",
+      "description": "Immutable Server-Driven UI revision history for admin auditing and rollback",
+      "type": "object",
+      "properties": {
+        "configVersion": { "type": "integer" },
+        "schemaVersion": { "type": "integer" },
+        "summary": { "type": "string" },
+        "publishedBy": { "type": "string" },
+        "payloadJson": { "type": "string" },
+        "contentSha256": { "type": "string" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["configVersion", "schemaVersion", "summary", "publishedBy", "payloadJson", "contentSha256", "createdAt"]
+    },
+    "AppBrandingDoc": {
+      "title": "AppBrandingDoc",
+      "description": "Super-Admin-managed live application branding (name, Storage logo URL, and version numbers)",
+      "type": "object",
+      "properties": {
+        "configKey": { "type": "string" },
+        "appName": { "type": "string" },
+        "logoUrl": { "type": "string", "description": "HTTPS Firebase Storage download URL for the active app logo, or empty string for default" },
+        "logoVersion": { "type": "integer" },
+        "brandingVersion": { "type": "integer" },
+        "updatedBy": { "type": "string" },
+        "metadata": { "type": "object" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["configKey", "appName", "logoUrl", "logoVersion", "brandingVersion", "updatedBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": "AdminUser",
+      "description": "Trusted administrator membership registry"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User accounts and administrative staff profiles"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "NotificationBroadcast",
+      "description": "FCM push notification broadcasts and delivery history"
+    },
+    "/remote_config/{configId}": {
+      "schema": "RemoteConfigDoc",
+      "description": "Live remote configuration and feature flags"
+    },
+    "/config_history/{historyId}": {
+      "schema": "ConfigHistoryDoc",
+      "description": "Versioned remote configuration rollback history"
+    },
+    "/banners_content/{bannerId}": {
+      "schema": "BannerContentDoc",
+      "description": "Dynamic app banners and clinical announcements"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": "SupportTicketDoc",
+      "description": "Customer feedback and hardware support tickets"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLogDoc",
+      "description": "Immutable security and database administration audit logs"
+    },
+    "/subscriptions/{subId}": {
+      "schema": "SubscriptionDoc",
+      "description": "User subscription plans and billing records"
+    },
+    "/backups/{backupId}": {
+      "schema": "BackupDoc",
+      "description": "Authorized database export and backup snapshots"
+    },
+    "/sdui_configs/{configId}": {
+      "schema": "SduiConfigDoc",
+      "description": "Active Server-Driven UI configurations synchronized in real time"
+    },
+    "/sdui_history/{historyId}": {
+      "schema": "SduiHistoryDoc",
+      "description": "Versioned Server-Driven UI rollback snapshots"
+    },
+    "/app_settings/{settingId}": {
+      "schema": "AppBrandingDoc",
+      "description": "Global application branding identity (appName, logoUrl, logoVersion, brandingVersion)"
+    }
+  }
+}

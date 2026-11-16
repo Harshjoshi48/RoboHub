@@ -1,0 +1,647 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Default-deny catch-all for all unlisted collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Hardened Global Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedBootstrappedAdmin() {
+      return isSignedIn() &&
+             'email' in request.auth.token &&
+             'email_verified' in request.auth.token &&
+             request.auth.token.email in ['hj195345@gmail.com', 'hj195344@gmail.com'] &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isVerifiedBootstrappedAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        isVerifiedBootstrappedAdmin() ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'SUPER_ADMIN')
+      );
+    }
+
+    function isValidMetadataAndTags(data) {
+      return (!('metadata' in data) || data.metadata == null || (data.metadata is map && data.metadata.size() <= 25)) &&
+             (!('tags' in data) || data.tags == null || (data.tags is list && data.tags.size() <= 20 && (data.tags.size() == 0 || data.tags[0] is string)));
+    }
+
+    // --- Entity Validation Helpers ---
+
+    function isValidAdminDoc(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'email', 'role', 'createdAt', 'updatedAt']) &&
+             data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+             data.role in ['SUPER_ADMIN', 'ADMIN', 'EDITOR', 'SUPPORT_AGENT', 'ANALYST'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidUserDoc(data) {
+      return data.keys().hasAll(['userId', 'username', 'name', 'email', 'role', 'status', 'createdAt']) &&
+             data.keys().hasOnly([
+               'userId', 'username', 'name', 'email', 'mobile', 'role', 'status',
+               'subscriptionPlan', 'deviceId', 'notes', 'photoUrl', 'photoUpdatedAt',
+               'twoFactorEnabled', 'loginCount', 'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.username is string && data.username.size() >= 2 && data.username.size() <= 60 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+             data.role in ['SUPER_ADMIN', 'ADMIN', 'EDITOR', 'SUPPORT_AGENT', 'ANALYST', 'USER'] &&
+             data.status in ['ACTIVE', 'SUSPENDED', 'DELETED'] &&
+             (!('mobile' in data) || data.mobile == null || (data.mobile is string && data.mobile.size() <= 40)) &&
+             (!('subscriptionPlan' in data) || data.subscriptionPlan == null || (data.subscriptionPlan is string && data.subscriptionPlan.size() <= 60)) &&
+             (!('deviceId' in data) || data.deviceId == null || (data.deviceId is string && data.deviceId.size() <= 80)) &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 500)) &&
+             (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 2048 && (data.photoUrl == '' || data.photoUrl.matches('^https://.*')))) &&
+             (!('photoUpdatedAt' in data) || data.photoUpdatedAt == null || (data.photoUpdatedAt is int && data.photoUpdatedAt >= 0)) &&
+             (!('twoFactorEnabled' in data) || data.twoFactorEnabled == null || data.twoFactorEnabled is bool) &&
+             (!('loginCount' in data) || data.loginCount == null || (data.loginCount is int && data.loginCount >= 0)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidNotificationDoc(data) {
+      return data.keys().hasAll(['title', 'message', 'targetAudience', 'sentBy', 'createdAt']) &&
+             data.keys().hasOnly([
+               'title', 'message', 'targetAudience', 'targetUsername', 'category',
+               'deliveryStatus', 'sentBy', 'recipientCount', 'isScheduled',
+               'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 1000 &&
+             data.targetAudience in ['ALL_USERS', 'ADMINS', 'PRO_USERS', 'SPECIFIC_USER'] &&
+             (!('targetUsername' in data) || data.targetUsername == null || (data.targetUsername is string && data.targetUsername.size() <= 128)) &&
+             (!('category' in data) || data.category == null || (data.category is string && data.category.size() <= 50)) &&
+             (!('deliveryStatus' in data) || data.deliveryStatus == null || data.deliveryStatus in ['DELIVERED', 'SCHEDULED', 'TEST_SENT', 'FAILED']) &&
+             data.sentBy is string && data.sentBy.size() >= 1 && data.sentBy.size() <= 100 &&
+             (!('recipientCount' in data) || data.recipientCount == null || (data.recipientCount is int && data.recipientCount >= 0)) &&
+             (!('isScheduled' in data) || data.isScheduled == null || data.isScheduled is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidRemoteConfigDoc(data) {
+      return data.keys().hasAll([
+               'configKey', 'maintenanceMode', 'maintenanceMessage',
+               'minSupportedVersionCode', 'minSupportedVersionName',
+               'recommendedVersionName', 'configVersion', 'updatedBy', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'configKey', 'maintenanceMode', 'maintenanceMessage',
+               'minSupportedVersionCode', 'minSupportedVersionName',
+               'recommendedVersionName', 'forceUpdate', 'featureAiAssistant',
+               'featureHandControl', 'featureGestureStudio', 'featureTelemetryStream',
+               'featureOtaUpdates', 'primaryThemeHex', 'maxGripForceLimitN',
+               'defaultEsp32Ip', 'configVersion', 'updatedBy',
+               'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.configKey is string && data.configKey.size() >= 1 && data.configKey.size() <= 64 &&
+             data.maintenanceMode is bool &&
+             data.maintenanceMessage is string && data.maintenanceMessage.size() >= 1 && data.maintenanceMessage.size() <= 500 &&
+             data.minSupportedVersionCode is int && data.minSupportedVersionCode >= 1 &&
+             data.minSupportedVersionName is string && data.minSupportedVersionName.size() >= 1 && data.minSupportedVersionName.size() <= 32 &&
+             data.recommendedVersionName is string && data.recommendedVersionName.size() >= 1 && data.recommendedVersionName.size() <= 32 &&
+             (!('forceUpdate' in data) || data.forceUpdate == null || data.forceUpdate is bool) &&
+             (!('featureAiAssistant' in data) || data.featureAiAssistant == null || data.featureAiAssistant is bool) &&
+             (!('featureHandControl' in data) || data.featureHandControl == null || data.featureHandControl is bool) &&
+             (!('featureGestureStudio' in data) || data.featureGestureStudio == null || data.featureGestureStudio is bool) &&
+             (!('featureTelemetryStream' in data) || data.featureTelemetryStream == null || data.featureTelemetryStream is bool) &&
+             (!('featureOtaUpdates' in data) || data.featureOtaUpdates == null || data.featureOtaUpdates is bool) &&
+             (!('primaryThemeHex' in data) || data.primaryThemeHex == null || (data.primaryThemeHex is string && data.primaryThemeHex.size() <= 16)) &&
+             (!('maxGripForceLimitN' in data) || data.maxGripForceLimitN == null || (data.maxGripForceLimitN is number && data.maxGripForceLimitN >= 1 && data.maxGripForceLimitN <= 100)) &&
+             (!('defaultEsp32Ip' in data) || data.defaultEsp32Ip == null || (data.defaultEsp32Ip is string && data.defaultEsp32Ip.size() <= 64)) &&
+             data.configVersion is int && data.configVersion >= 1 &&
+             data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 100 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidConfigHistoryDoc(data) {
+      return data.keys().hasAll(['configVersion', 'summary', 'publishedBy', 'createdAt']) &&
+             data.keys().hasOnly([
+               'configVersion', 'summary', 'publishedBy', 'snapshotMap',
+               'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.configVersion is int && data.configVersion >= 1 &&
+             data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 300 &&
+             data.publishedBy is string && data.publishedBy.size() >= 1 && data.publishedBy.size() <= 100 &&
+             (!('snapshotMap' in data) || data.snapshotMap == null || (data.snapshotMap is map && data.snapshotMap.size() <= 30)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isHexOrEmpty(val) {
+      return val is string && (val == '' || val.matches('^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$'));
+    }
+
+    function isSafeBannerMediaUrl(val) {
+      return val is string && (
+        val == '' ||
+        (val.size() <= 1024 && val.matches('^https?://.*')) ||
+        (val.size() <= 160000 && val.matches('^data:image/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$'))
+      );
+    }
+
+    function isValidBannerDoc(data) {
+      return data.keys().hasAll(['title', 'subtitle', 'isActive', 'createdAt']) &&
+             data.keys().hasOnly([
+               'bannerKey', 'title', 'subtitle', 'description', 'bannerType',
+               'iconKey', 'imageUrl', 'thumbnailUrl',
+               'ctaEnabled', 'ctaText', 'ctaActionType', 'ctaTargetValue',
+               'deepLinkRoute', 'targetScreen',
+               'backgroundHex', 'textHex', 'buttonHex', 'buttonTextHex', 'borderHex',
+               'priority', 'displayPosition',
+               'isActive', 'isPublic', 'isPublished', 'isDraft',
+               'clinicalReviewStatus', 'clinicalApproved', 'reviewedBy',
+               'startAtMillis', 'endAtMillis', 'timezoneId',
+               'targetAudience', 'targetValuesCsv',
+               'dismissible', 'reShowAfterDismissHours',
+               'impressionsCount', 'uniqueViewsCount', 'clicksCount',
+               'createdBy', 'updatedBy',
+               'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+             data.subtitle is string && data.subtitle.size() >= 1 && data.subtitle.size() <= 400 &&
+             data.isActive is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             data.get('bannerType', 'ANNOUNCEMENT') in ['ANNOUNCEMENT', 'CLINICAL_TIP', 'PROMOTION', 'WARNING'] &&
+             data.get('ctaActionType', 'OPEN_SCREEN') in ['NONE', 'OPEN_URL', 'OPEN_SCREEN', 'OPEN_CATEGORY', 'OPEN_PRODUCT', 'SHOW_POPUP', 'CALL', 'WHATSAPP'] &&
+             data.get('displayPosition', 'HOME_TOP') in ['HOME_TOP', 'HOME_SLIDER', 'HOME_MIDDLE', 'HOME_BOTTOM', 'TOP_STICKY', 'BOTTOM_STICKY', 'FLOATING', 'POPUP', 'CATEGORY', 'PRODUCT_DETAILS'] &&
+             data.get('clinicalReviewStatus', 'NOT_REQUIRED') in ['NOT_REQUIRED', 'PENDING_REVIEW', 'APPROVED', 'REJECTED'] &&
+             data.get('targetAudience', 'PUBLIC_ALL') in ['PUBLIC_ALL', 'SPECIFIC_USERS', 'USER_ROLES', 'NEW_USERS', 'EXISTING_USERS'] &&
+             data.get('isPublic', true) is bool &&
+             data.get('isPublished', true) is bool &&
+             data.get('isDraft', false) is bool &&
+             data.get('clinicalApproved', true) is bool &&
+             data.get('ctaEnabled', true) is bool &&
+             data.get('dismissible', true) is bool &&
+             isHexOrEmpty(data.get('backgroundHex', '')) &&
+             isHexOrEmpty(data.get('textHex', '')) &&
+             isHexOrEmpty(data.get('buttonHex', '')) &&
+             isHexOrEmpty(data.get('buttonTextHex', '')) &&
+             isHexOrEmpty(data.get('borderHex', '')) &&
+             isSafeBannerMediaUrl(data.get('imageUrl', '')) &&
+             isSafeBannerMediaUrl(data.get('thumbnailUrl', '')) &&
+             data.get('priority', 0) is int &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidBannerAnalyticsEventDoc(data) {
+      return data.keys().hasAll(['bannerId', 'bannerKey', 'eventType', 'userId', 'username', 'dateKey', 'createdAt']) &&
+             data.keys().hasOnly([
+               'bannerId', 'bannerKey', 'eventType', 'userId', 'username',
+               'dateKey', 'screenSlot', 'metadata', 'createdAt'
+             ]) &&
+             data.bannerId is int && data.bannerId >= 0 &&
+             data.bannerKey is string && data.bannerKey.size() >= 1 && data.bannerKey.size() <= 128 &&
+             data.eventType in ['IMPRESSION', 'CLICK', 'DISMISS'] &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.username is string && data.username.size() >= 1 && data.username.size() <= 100 &&
+             data.dateKey is string && data.dateKey.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             (!('screenSlot' in data) || data.screenSlot == null || (data.screenSlot is string && data.screenSlot.size() <= 64)) &&
+             (!('metadata' in data) || data.metadata == null || (data.metadata is map && data.metadata.size() <= 15)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidSupportTicketDoc(data) {
+      return data.keys().hasAll(['userId', 'username', 'userEmail', 'subject', 'message', 'status', 'createdAt']) &&
+             data.keys().hasOnly([
+               'userId', 'username', 'userEmail', 'subject', 'message',
+               'category', 'priority', 'status', 'adminReply', 'assignedTo',
+               'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.username is string && data.username.size() >= 1 && data.username.size() <= 80 &&
+             data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 150 &&
+             data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 200 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 2000 &&
+             (!('category' in data) || data.category == null || (data.category is string && data.category.size() <= 50)) &&
+             (!('priority' in data) || data.priority == null || data.priority in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']) &&
+             data.status in ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] &&
+             (!('adminReply' in data) || data.adminReply == null || (data.adminReply is string && data.adminReply.size() <= 2000)) &&
+             (!('assignedTo' in data) || data.assignedTo == null || (data.assignedTo is string && data.assignedTo.size() <= 100)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidAuditLogDoc(data) {
+      return data.keys().hasAll([
+               'actorUid', 'actorUsername', 'actorRole', 'actionType',
+               'targetEntity', 'details', 'severity', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'actorUid', 'actorUsername', 'actorRole', 'actionType',
+               'targetEntity', 'details', 'severity', 'metadata', 'tags', 'createdAt'
+             ]) &&
+             data.actorUid is string && data.actorUid.size() >= 1 && data.actorUid.size() <= 128 &&
+             data.actorUsername is string && data.actorUsername.size() >= 1 && data.actorUsername.size() <= 100 &&
+             data.actorRole is string && data.actorRole.size() >= 1 && data.actorRole.size() <= 50 &&
+             data.actionType is string && data.actionType.size() >= 1 && data.actionType.size() <= 80 &&
+             data.targetEntity is string && data.targetEntity.size() >= 1 && data.targetEntity.size() <= 150 &&
+             data.details is string && data.details.size() >= 1 && data.details.size() <= 1000 &&
+             data.severity in ['INFO', 'WARNING', 'CRITICAL'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidSubscriptionDoc(data) {
+      return data.keys().hasAll(['userId', 'username', 'planName', 'status', 'amountUsd', 'createdAt']) &&
+             data.keys().hasOnly([
+               'userId', 'username', 'planName', 'status', 'amountUsd',
+               'billingCycle', 'paymentMethodLast4', 'autoRenew',
+               'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.username is string && data.username.size() >= 1 && data.username.size() <= 80 &&
+             data.planName is string && data.planName.size() >= 1 && data.planName.size() <= 80 &&
+             data.status in ['ACTIVE', 'PAST_DUE', 'CANCELED', 'TRIAL'] &&
+             data.amountUsd is number && data.amountUsd >= 0 && data.amountUsd <= 100000 &&
+             (!('billingCycle' in data) || data.billingCycle == null || (data.billingCycle is string && data.billingCycle.size() <= 40)) &&
+             (!('paymentMethodLast4' in data) || data.paymentMethodLast4 == null || (data.paymentMethodLast4 is string && data.paymentMethodLast4.size() <= 10)) &&
+             (!('autoRenew' in data) || data.autoRenew == null || data.autoRenew is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidBackupDoc(data) {
+      return data.keys().hasAll(['label', 'createdBy', 'collectionName', 'recordCount', 'sizeBytes', 'createdAt']) &&
+             data.keys().hasOnly([
+               'label', 'createdBy', 'collectionName', 'recordCount', 'sizeBytes',
+               'recordsList', 'metadataMap', 'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.label is string && data.label.size() >= 1 && data.label.size() <= 150 &&
+             data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 100 &&
+             data.collectionName is string && data.collectionName.size() >= 1 && data.collectionName.size() <= 64 &&
+             data.recordCount is int && data.recordCount >= 0 && data.recordCount <= 5000 &&
+             data.sizeBytes is int && data.sizeBytes >= 0 && data.sizeBytes <= 1048576 &&
+             (!('recordsList' in data) || data.recordsList == null || (data.recordsList is list && data.recordsList.size() <= 200)) &&
+             (!('metadataMap' in data) || data.metadataMap == null || (data.metadataMap is map && data.metadataMap.size() <= 25)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidSystemConfigDoc(data) {
+      return data.keys().hasAll([
+               'configKey', 'otpTtlSeconds', 'otpMaxSends', 'otpWindowSeconds',
+               'sessionTtlMinutes', 'rateLimitPerMinute', 'configVersion', 'updatedBy', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'configKey', 'otpTtlSeconds', 'otpMaxSends', 'otpWindowSeconds',
+               'sessionTtlMinutes', 'rateLimitPerMinute', 'requireTwoFactorForAdmins',
+               'idleLockoutMinutes', 'fcmMasterEnabled', 'fcmDefaultTopic',
+               'highPriorityClinicalAlerts', 'preserveDefaultScreenLayout',
+               'maintenanceMode', 'maintenanceMessage', 'minSupportedVersionName',
+               'recommendedVersionName', 'forceUpdate', 'configVersion', 'updatedBy',
+               'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.configKey is string && data.configKey.size() >= 1 && data.configKey.size() <= 64 &&
+             data.otpTtlSeconds is int && data.otpTtlSeconds >= 15 && data.otpTtlSeconds <= 600 &&
+             data.otpMaxSends is int && data.otpMaxSends >= 1 && data.otpMaxSends <= 10 &&
+             data.otpWindowSeconds is int && data.otpWindowSeconds >= 60 && data.otpWindowSeconds <= 3600 &&
+             data.sessionTtlMinutes is int && data.sessionTtlMinutes >= 5 && data.sessionTtlMinutes <= 1440 &&
+             data.rateLimitPerMinute is int && data.rateLimitPerMinute >= 10 && data.rateLimitPerMinute <= 1000 &&
+             (!('requireTwoFactorForAdmins' in data) || data.requireTwoFactorForAdmins == null || data.requireTwoFactorForAdmins is bool) &&
+             (!('idleLockoutMinutes' in data) || data.idleLockoutMinutes == null || (data.idleLockoutMinutes is int && data.idleLockoutMinutes >= 1 && data.idleLockoutMinutes <= 240)) &&
+             (!('fcmMasterEnabled' in data) || data.fcmMasterEnabled == null || data.fcmMasterEnabled is bool) &&
+             (!('fcmDefaultTopic' in data) || data.fcmDefaultTopic == null || (data.fcmDefaultTopic is string && data.fcmDefaultTopic.size() <= 64)) &&
+             (!('highPriorityClinicalAlerts' in data) || data.highPriorityClinicalAlerts == null || data.highPriorityClinicalAlerts is bool) &&
+             (!('preserveDefaultScreenLayout' in data) || data.preserveDefaultScreenLayout == null || data.preserveDefaultScreenLayout is bool) &&
+             (!('maintenanceMode' in data) || data.maintenanceMode == null || data.maintenanceMode is bool) &&
+             (!('maintenanceMessage' in data) || data.maintenanceMessage == null || (data.maintenanceMessage is string && data.maintenanceMessage.size() <= 500)) &&
+             (!('minSupportedVersionName' in data) || data.minSupportedVersionName == null || (data.minSupportedVersionName is string && data.minSupportedVersionName.size() <= 32)) &&
+             (!('recommendedVersionName' in data) || data.recommendedVersionName == null || (data.recommendedVersionName is string && data.recommendedVersionName.size() <= 32)) &&
+             (!('forceUpdate' in data) || data.forceUpdate == null || data.forceUpdate is bool) &&
+             data.configVersion is int && data.configVersion >= 1 &&
+             data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 100 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidSduiConfigDoc(data) {
+      return data.keys().hasAll([
+               'configKey', 'schemaVersion', 'configVersion', 'updatedBy',
+               'payloadJson', 'contentSha256', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'configKey', 'schemaVersion', 'configVersion', 'updatedBy',
+               'changeSummary', 'payloadJson', 'contentSha256', 'themePrimaryHex',
+               'themeBackgroundHex', 'heroTitle', 'heroImageUrl', 'promoEnabled',
+               'sectionsOrder', 'metadata', 'tags', 'createdAt', 'updatedAt'
+             ]) &&
+             data.configKey is string && data.configKey.size() >= 1 && data.configKey.size() <= 64 &&
+             data.schemaVersion is int && data.schemaVersion >= 1 && data.schemaVersion <= 2 &&
+             data.configVersion is int && data.configVersion >= 1 && data.configVersion <= 1000000 &&
+             data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 100 &&
+             (!('changeSummary' in data) || data.changeSummary == null || (data.changeSummary is string && data.changeSummary.size() <= 250)) &&
+             data.payloadJson is string && data.payloadJson.size() >= 10 && data.payloadJson.size() <= 65536 &&
+             data.contentSha256 is string && data.contentSha256.size() == 64 &&
+             (!('themePrimaryHex' in data) || data.themePrimaryHex == null || (data.themePrimaryHex is string && data.themePrimaryHex.matches('^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$'))) &&
+             (!('themeBackgroundHex' in data) || data.themeBackgroundHex == null || (data.themeBackgroundHex is string && data.themeBackgroundHex.matches('^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$'))) &&
+             (!('heroTitle' in data) || data.heroTitle == null || (data.heroTitle is string && data.heroTitle.size() <= 120)) &&
+             (!('heroImageUrl' in data) || data.heroImageUrl == null || (data.heroImageUrl is string && data.heroImageUrl.size() <= 600 && (data.heroImageUrl == '' || data.heroImageUrl.matches('^https://.*')))) &&
+             (!('promoEnabled' in data) || data.promoEnabled == null || data.promoEnabled is bool) &&
+             (!('sectionsOrder' in data) || data.sectionsOrder == null || (data.sectionsOrder is list && data.sectionsOrder.size() >= 1 && data.sectionsOrder.size() <= 12)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidSduiHistoryDoc(data) {
+      return data.keys().hasAll([
+               'configVersion', 'schemaVersion', 'summary', 'publishedBy',
+               'payloadJson', 'contentSha256', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'configVersion', 'schemaVersion', 'summary', 'publishedBy',
+               'payloadJson', 'contentSha256', 'metadata', 'tags', 'createdAt'
+             ]) &&
+             data.configVersion is int && data.configVersion >= 1 && data.configVersion <= 1000000 &&
+             data.schemaVersion is int && data.schemaVersion >= 1 && data.schemaVersion <= 2 &&
+             data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 250 &&
+             data.publishedBy is string && data.publishedBy.size() >= 1 && data.publishedBy.size() <= 100 &&
+             data.payloadJson is string && data.payloadJson.size() >= 10 && data.payloadJson.size() <= 65536 &&
+             data.contentSha256 is string && data.contentSha256.size() == 64 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             isValidMetadataAndTags(data);
+    }
+
+    function isValidAppBrandingDoc(data) {
+      return data.keys().hasAll([
+               'configKey', 'appName', 'logoUrl', 'logoVersion',
+               'brandingVersion', 'updatedBy', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'configKey', 'appName', 'logoUrl', 'logoVersion',
+               'brandingVersion', 'updatedBy', 'metadata', 'tags',
+               'createdAt', 'updatedAt'
+             ]) &&
+             data.configKey == 'branding' &&
+             data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 30 &&
+             data.logoUrl is string && data.logoUrl.size() <= 2048 &&
+             (data.logoUrl == '' || data.logoUrl.matches('^https://.*')) &&
+             data.logoVersion is int && data.logoVersion >= 1 &&
+             data.brandingVersion is int && data.brandingVersion >= 1 &&
+             data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 100 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             isValidMetadataAndTags(data);
+    }
+
+    // --- Collection Match Blocks ---
+
+    // 1. Trusted Admin Membership Registry
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (request.auth.uid == adminId || isAdmin());
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(adminId) && isValidAdminDoc(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(adminId) && isValidAdminDoc(incoming()) && isAdmin() &&
+                       incoming().uid == existing().uid &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(adminId) && isAdmin();
+    }
+
+    // 2. Users Collection (PII-isolated to owner or verified Admin)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() && isValidId(userId) && isValidUserDoc(incoming()) && (
+        // Self-registration: strictly enforce userId == auth.uid and non-privileged role
+        (request.auth.uid == userId &&
+         incoming().userId == request.auth.uid &&
+         incoming().role == 'USER' &&
+         incoming().status == 'ACTIVE') ||
+        // Admin creation
+        isAdmin()
+      );
+
+      allow update: if isSignedIn() && isValidId(userId) && isValidUserDoc(incoming()) && (
+        // Action 1: Owner updates permitted profile fields (cannot escalate role or status)
+        (request.auth.uid == userId &&
+         incoming().userId == existing().userId &&
+         incoming().role == existing().role &&
+         incoming().status == existing().status &&
+         incoming().createdAt == existing().createdAt &&
+         incoming().diff(existing()).affectedKeys().hasOnly([
+           'name', 'mobile', 'deviceId', 'notes', 'photoUrl', 'photoUpdatedAt', 'twoFactorEnabled', 'metadata', 'tags', 'updatedAt'
+         ])) ||
+        // Action 2: Administrator updates user profile, status, or role
+        (isAdmin() &&
+         incoming().userId == existing().userId &&
+         incoming().createdAt == existing().createdAt)
+      );
+
+      allow delete: if isSignedIn() && isValidId(userId) && (
+        (request.auth.uid == userId && existing().role == 'USER') ||
+        isAdmin()
+      );
+    }
+
+    // 3. Notifications & FCM Broadcasts
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && isValidId(notificationId) && (
+        existing().targetAudience == 'ALL_USERS' ||
+        existing().targetUsername == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        existing().targetAudience == 'ALL_USERS' ||
+        existing().targetUsername == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() && isValidId(notificationId) && isValidNotificationDoc(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(notificationId) && isValidNotificationDoc(incoming()) &&
+                       isAdmin() && incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(notificationId) && isAdmin();
+    }
+
+    // 4. Remote App Configuration
+    match /remote_config/{configId} {
+      allow get: if isSignedIn() && isValidId(configId);
+      allow list: if isSignedIn() && (existing().configKey == 'current' || isAdmin());
+      allow create: if isSignedIn() && isValidId(configId) && isValidRemoteConfigDoc(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(configId) && isValidRemoteConfigDoc(incoming()) &&
+                       isAdmin() && incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(configId) && isAdmin();
+    }
+
+    // 5. Remote Configuration Rollback History
+    match /config_history/{historyId} {
+      allow get: if isSignedIn() && isValidId(historyId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(historyId) && isValidConfigHistoryDoc(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(historyId) && isValidConfigHistoryDoc(incoming()) &&
+                       isAdmin() && incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(historyId) && isAdmin();
+    }
+
+    // 6. Banners & CMS Content (Admin manages all; Signed-in users read Public+Published+Active+Approved only)
+    match /banners_content/{bannerId} {
+      allow get: if isSignedIn() && isValidId(bannerId) && (
+        isAdmin() ||
+        (existing().isActive == true &&
+         existing().isPublic == true &&
+         existing().isPublished == true &&
+         existing().isDraft == false &&
+         existing().clinicalApproved == true)
+      );
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        (existing().isActive == true &&
+         existing().isPublic == true &&
+         existing().isPublished == true &&
+         existing().isDraft == false &&
+         existing().clinicalApproved == true)
+      );
+      allow create: if isSignedIn() && isValidId(bannerId) && isAdmin() && isValidBannerDoc(incoming());
+      allow update: if isSignedIn() && isValidId(bannerId) && isAdmin() &&
+                       isValidBannerDoc(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(bannerId) && isAdmin();
+    }
+
+    // 6b. Append-Only Banner Analytics Events (Impressions, Clicks, Dismissals)
+    match /banner_analytics_events/{eventId} {
+      allow get: if isSignedIn() && isValidId(eventId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(eventId) && isValidBannerAnalyticsEventDoc(incoming()) && (
+        incoming().userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow update, delete: if false;
+    }
+
+    // 7. Support Tickets & Feedback
+    match /support_tickets/{ticketId} {
+      allow get: if isSignedIn() && isValidId(ticketId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(ticketId) && isValidSupportTicketDoc(incoming()) && (
+        (incoming().userId == request.auth.uid && incoming().status == 'OPEN') ||
+        isAdmin()
+      );
+      allow update: if isSignedIn() && isValidId(ticketId) && isValidSupportTicketDoc(incoming()) && (
+        // Action 1: Owner updates message on non-closed ticket
+        (request.auth.uid == existing().userId &&
+         existing().status != 'CLOSED' &&
+         incoming().userId == existing().userId &&
+         incoming().status == existing().status &&
+         incoming().createdAt == existing().createdAt &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['message', 'updatedAt'])) ||
+        // Action 2: Administrator triages, replies, or closes ticket
+        (isAdmin() &&
+         incoming().userId == existing().userId &&
+         incoming().createdAt == existing().createdAt)
+      );
+      allow delete: if isSignedIn() && isValidId(ticketId) && isAdmin();
+    }
+
+    // 8. Immutable Security & Database Audit Logs (Append-Only)
+    match /audit_logs/{logId} {
+      allow get: if isSignedIn() && isValidId(logId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(logId) && isValidAuditLogDoc(incoming()) && (
+        (incoming().actorUid == request.auth.uid && incoming().actorRole == 'USER') ||
+        isAdmin()
+      );
+      allow update, delete: if false;
+    }
+
+    // 9. Subscriptions & Billing Records
+    match /subscriptions/{subId} {
+      allow get: if isSignedIn() && isValidId(subId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(subId) && isValidSubscriptionDoc(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(subId) && isValidSubscriptionDoc(incoming()) &&
+                       isAdmin() && incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(subId) && isAdmin();
+    }
+
+    // 10. Authorized Database Backups & Snapshots
+    match /backups/{backupId} {
+      allow get: if isSignedIn() && isValidId(backupId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(backupId) && isValidBackupDoc(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(backupId) && isValidBackupDoc(incoming()) &&
+                       isAdmin() && incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(backupId) && isAdmin();
+    }
+
+    // 11. Non-Secret Dynamic System Configuration (Super Admin Managed)
+    match /system_config/{configId} {
+      allow get: if isSignedIn() && isValidId(configId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(configId) && isValidSystemConfigDoc(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(configId) && isValidSystemConfigDoc(incoming()) &&
+                       isAdmin() && incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+
+    // 12. Real-Time Server-Driven UI (SDUI) Configurations (Admin-managed, Signed-in client readable)
+    match /sdui_configs/{configId} {
+      allow get: if isSignedIn() && isValidId(configId) && (configId == 'dashboard_active' || isAdmin());
+      allow list: if isSignedIn() && (existing().configKey == 'dashboard_active' || isAdmin());
+      allow create: if isSignedIn() && isValidId(configId) && isValidSduiConfigDoc(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(configId) && isValidSduiConfigDoc(incoming()) &&
+                       isAdmin() && incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+
+    // 13. Immutable SDUI Revision & Rollback History
+    match /sdui_history/{historyId} {
+      allow get: if isSignedIn() && isValidId(historyId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(historyId) && isValidSduiHistoryDoc(incoming()) && isAdmin();
+      allow update, delete: if false;
+    }
+
+    // 14. App Branding & Identity Settings (Super-Admin write-only, Signed-in client readable)
+    match /app_settings/{settingId} {
+      allow get: if isSignedIn() && isValidId(settingId) && (settingId == 'branding' || isSuperAdmin());
+      allow list: if isSignedIn() && (existing().configKey == 'branding' || isSuperAdmin());
+      allow create: if isSignedIn() && isValidId(settingId) && settingId == 'branding' &&
+                       isSuperAdmin() && isValidAppBrandingDoc(incoming());
+      allow update: if isSignedIn() && isValidId(settingId) && settingId == 'branding' &&
+                       isSuperAdmin() && isValidAppBrandingDoc(incoming()) &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+  }
+}

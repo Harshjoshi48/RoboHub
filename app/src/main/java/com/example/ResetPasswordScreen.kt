@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResetPasswordScreen(
+    email: String = "hj195345@gmail.com",
+    adminViewModel: AdminViewModel? = null,
     onResetSuccess: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -48,28 +50,34 @@ fun ResetPasswordScreen(
     val hasSpecial = newPassword.any { !it.isLetterOrDigit() }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { 
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("Reset Password", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkText, modifier = Modifier.padding(end = 48.dp))
-                    }
+            CenterAlignedTopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                title = {
+                    Text("Reset Password", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkText)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = primaryBlue)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = lightBg)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = lightBg)
             )
         },
         containerColor = lightBg
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.TopCenter
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 560.dp)
                 .padding(horizontal = 24.dp)
         ) {
             Spacer(modifier = Modifier.height(24.dp))
@@ -85,7 +93,7 @@ fun ResetPasswordScreen(
             Spacer(modifier = Modifier.height(12.dp))
             
             Text(
-                text = "Your new password must be different from previously used passwords.",
+                text = "Setting verified password for $email. Your new password is stored as a salted SHA-256 hash.",
                 fontSize = 14.sp,
                 color = textGray
             )
@@ -166,7 +174,6 @@ fun ResetPasswordScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.height(32.dp))
             
             Button(
@@ -175,20 +182,34 @@ fun ResetPasswordScreen(
                         Toast.makeText(context, "Please meet all password requirements", Toast.LENGTH_SHORT).show()
                     } else if (newPassword != confirmPassword) {
                         Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
+                    } else if (adminViewModel != null) {
+                        adminViewModel.resetPasswordAfterOtp(
+                            email = email,
+                            newPassword = newPassword,
+                            onSuccess = { msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                onResetSuccess()
+                            },
+                            onError = { err ->
+                                Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     } else {
-                        Toast.makeText(context, "password is reset login now", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Password reset complete. Please sign in.", Toast.LENGTH_SHORT).show()
                         onResetSuccess()
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(bottom = 8.dp),
+                    .heightIn(min = 56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
             ) {
                 Text("Reset Password", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
         }
     }
 }
